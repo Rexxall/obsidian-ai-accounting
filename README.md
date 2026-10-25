@@ -8,6 +8,8 @@
 
 [Features](#features) · [Install](#install) · [Privacy](#privacy) · [How it works](#how-it-works) · [中文说明](#中文说明) · [日本語](#日本語)
 
+<img src="docs/screenshots/ledger.jpg" width="860">
+
 </div>
 
 ## Why
@@ -24,6 +26,8 @@ Most expense apps keep your data in their own database, and the ones that read r
 - **Multi-currency.** Each row keeps its original amount and currency, the rate used, and the amount in your base currency.
 - **Split a bill.** Tick *AA/分账* to divide a purchase evenly among the people you set up.
 
+<img src="docs/screenshots/review.jpg" width="860">
+
 ### Reviewing
 
 - **Transactions first.** The dashboard opens on the list for the selected member and period, with search and filters.
@@ -31,6 +35,11 @@ Most expense apps keep your data in their own database, and the ones that read r
 - **Edit, re-categorise, rename a category across a year, delete** (delete asks for a second click).
 - **Export** the current view as CSV.
 - **Daily notes.** Optionally append each day's spending to your daily note.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/charts-dark.jpg">
+  <img src="docs/screenshots/charts.jpg" width="860">
+</picture>
 
 ### AI services
 
@@ -92,6 +101,7 @@ npm run lint
 - CSV export now escapes quotes correctly.
 - AI output is checked before use: a non-text value can no longer end up as `[object Object]` in your ledger.
 - Delete asks for a second click instead of a browser dialog.
+- The dashboard updates right after an import is confirmed, and charts redraw when you switch between light and dark themes.
 - Default Gemini model updated to `gemini-2.5-flash`; the retired 1.5 default is migrated.
 - Removed the ribbon button that only showed a notice, unused code and the `lodash` dependency.
 
