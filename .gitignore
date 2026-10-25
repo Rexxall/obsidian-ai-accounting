@@ -1,0 +1,10 @@
+node_modules/
+main.js
+*.map
+data.json
+rates_cache.json
+release/
+*.zip
+.DS_Store
+.vscode
+.idea
