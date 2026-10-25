@@ -43,6 +43,8 @@ export interface AccountingSettings {
 	dailyJournalEnabled: boolean;
 	dailyJournalFolderPath: string;
 	dailyJournalFilePattern: string; // e.g. YYYY-MM-DD
+	// Appearance
+	paperStyle: boolean;
 }
 
 export const DEFAULT_SETTINGS: AccountingSettings = {
@@ -65,7 +67,8 @@ export const DEFAULT_SETTINGS: AccountingSettings = {
 	sidebarWidth: 400,
 	dailyJournalEnabled: false,
 	dailyJournalFolderPath: 'Daily',
-	dailyJournalFilePattern: 'YYYY-MM-DD'
+	dailyJournalFilePattern: 'YYYY-MM-DD',
+	paperStyle: false
 }
 
 export class AccountingSettingTab extends PluginSettingTab {
@@ -103,6 +106,19 @@ export class AccountingSettingTab extends PluginSettingTab {
     renderSettingsBody(): void {
 		const { containerEl } = this;
 		containerEl.empty();
+
+		containerEl.createEl('h2', { text: '外观' });
+
+		new Setting(containerEl)
+			.setName('纸墨风格（Paper & ink style）')
+			.setDesc('纸色底、细墨线、衬线数字，强调色用暗红和青绿。关闭时跟随 Obsidian 主题。')
+			.addToggle(toggle => toggle
+				.setValue(!!this.plugin.settings.paperStyle)
+				.onChange(async (value) => {
+					this.plugin.settings.paperStyle = value;
+					await this.plugin.saveSettings();
+					this.plugin.refreshDashboards();
+				}));
 
 		containerEl.createEl('h2', { text: '币种与文件存储' });
 

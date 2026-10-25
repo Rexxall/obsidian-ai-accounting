@@ -1,0 +1,408 @@
+/* ==========================================================================
+   Shared UI kit (rk-*). The same file ships in four plugins, each copy scoped
+   to its own root, so the plugins never style each other.
+   Default: Obsidian theme variables. Optional: .rk-paper (Paper & ink style).
+   ========================================================================== */
+
+__R__ {
+	--rk-bg: var(--background-primary);
+	--rk-card: var(--background-secondary);
+	--rk-border: var(--background-modifier-border);
+	--rk-hair: var(--background-modifier-border);
+	--rk-text: var(--text-normal);
+	--rk-muted: var(--text-muted);
+	--rk-faint: var(--text-faint);
+	--rk-accent: var(--interactive-accent);
+	--rk-accent-soft: hsla(var(--interactive-accent-hsl), 0.12);
+	--rk-good: var(--color-green);
+	--rk-good-soft: rgba(var(--color-green-rgb), 0.12);
+	--rk-warn: var(--color-orange);
+	--rk-warn-soft: rgba(var(--color-orange-rgb), 0.13);
+	--rk-danger: var(--color-red);
+	--rk-danger-soft: rgba(var(--color-red-rgb), 0.12);
+	--rk-ink: var(--text-muted);
+	--rk-series-1: var(--interactive-accent);
+	--rk-series-2: var(--color-blue);
+	--rk-series-3: var(--color-yellow);
+	--rk-series-4: var(--color-green);
+	--rk-series-5: var(--color-pink);
+	--rk-series-6: var(--text-faint);
+	--rk-font-head: var(--font-interface);
+	--rk-font-num: var(--font-interface);
+	--rk-radius: var(--radius-m, 8px);
+	--rk-radius-s: var(--radius-s, 4px);
+	--rk-card-shadow: none;
+	--rk-row-sep: 1px solid var(--rk-hair);
+	color: var(--rk-text);
+}
+
+/* ---- Paper & ink: tokens ---- */
+__R__.rk-paper {
+	--rk-bg: #f6f1e7;
+	--rk-card: #fbf8f1;
+	--rk-border: rgba(31, 27, 23, 0.6);
+	--rk-hair: rgba(31, 27, 23, 0.14);
+	--rk-text: #1f1b17;
+	--rk-muted: #574f47;
+	--rk-faint: #9b9286;
+	--rk-accent: #9e2b25;
+	--rk-accent-soft: rgba(158, 43, 37, 0.1);
+	--rk-good: #2a7f74;
+	--rk-good-soft: rgba(42, 127, 116, 0.13);
+	--rk-warn: #c4623f;
+	--rk-warn-soft: rgba(224, 122, 95, 0.17);
+	--rk-danger: #9e2b25;
+	--rk-danger-soft: rgba(158, 43, 37, 0.11);
+	--rk-ink: #1f1b17;
+	--rk-series-1: #1f1b17;
+	--rk-series-2: #9e2b25;
+	--rk-series-3: #2a7f74;
+	--rk-series-4: #d9704f;
+	--rk-series-5: #b8893a;
+	--rk-series-6: #bdb3a4;
+	--rk-font-head: "Songti SC", "Hiragino Mincho ProN", "Noto Serif CJK SC", "Source Han Serif", Georgia, serif;
+	--rk-font-num: var(--rk-font-head);
+	--rk-radius: 15px 19px 16px 18px / 18px 15px 19px 16px;
+	--rk-radius-s: 999px;
+	--rk-card-shadow: 3px 3px 0 -1px var(--rk-hair);
+	--rk-row-sep: 1px dashed var(--rk-hair);
+	background-color: var(--rk-bg);
+}
+
+.theme-dark __R__.rk-paper {
+	--rk-bg: #1b1916;
+	--rk-card: #221f1b;
+	--rk-border: rgba(236, 228, 212, 0.45);
+	--rk-hair: rgba(236, 228, 212, 0.13);
+	--rk-text: #ece4d4;
+	--rk-muted: #bdb3a2;
+	--rk-faint: #7d7568;
+	--rk-accent: #d46a5f;
+	--rk-accent-soft: rgba(212, 106, 95, 0.14);
+	--rk-good: #5fb3a6;
+	--rk-good-soft: rgba(95, 179, 166, 0.15);
+	--rk-warn: #e48a6c;
+	--rk-warn-soft: rgba(228, 138, 108, 0.16);
+	--rk-danger: #d46a5f;
+	--rk-danger-soft: rgba(212, 106, 95, 0.15);
+	--rk-ink: #ece4d4;
+	--rk-series-1: #ece4d4;
+	--rk-series-2: #d46a5f;
+	--rk-series-3: #5fb3a6;
+	--rk-series-4: #e48a6c;
+	--rk-series-5: #d1a85a;
+	--rk-series-6: #5d564c;
+	--rk-card-shadow: 3px 3px 0 -1px rgba(0, 0, 0, 0.45);
+}
+
+/* ---- Header ---- */
+__R__ .rk-head {
+	display: flex;
+	align-items: flex-end;
+	justify-content: space-between;
+	gap: 12px;
+	margin-bottom: 16px;
+}
+__R__ .rk-head-main { min-width: 0; }
+__R__ .rk-head-actions {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	flex-wrap: wrap;
+	justify-content: flex-end;
+}
+__R__ .rk-kicker {
+	font-size: var(--font-ui-smaller);
+	color: var(--rk-faint);
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	margin-bottom: 2px;
+}
+__R__ .rk-title {
+	margin: 0;
+	font-family: var(--rk-font-head);
+	font-size: 1.3em;
+	font-weight: 600;
+	line-height: 1.3;
+	color: var(--rk-text);
+}
+__R__ .rk-sub {
+	color: var(--rk-faint);
+	font-size: var(--font-ui-small);
+}
+
+/* ---- Section label ---- */
+__R__ .rk-label {
+	margin: 0 0 8px;
+	font-size: var(--font-ui-smaller);
+	font-weight: 500;
+	color: var(--rk-faint);
+	letter-spacing: 0.05em;
+}
+__R__.rk-paper .rk-label {
+	font-family: var(--rk-font-head);
+	font-size: var(--font-ui-small);
+	font-weight: 600;
+	color: var(--rk-muted);
+	letter-spacing: 0.03em;
+}
+__R__.rk-paper .rk-label::before {
+	content: "";
+	display: inline-block;
+	width: 14px;
+	height: 1px;
+	margin-right: 8px;
+	vertical-align: middle;
+	background: var(--rk-ink);
+}
+
+/* ---- Card ---- */
+__R__ .rk-card {
+	padding: 14px 16px;
+	border: 1px solid var(--rk-hair);
+	border-radius: var(--rk-radius);
+	background: var(--rk-card);
+	box-shadow: var(--rk-card-shadow);
+}
+__R__.rk-paper .rk-card { border-color: var(--rk-border); }
+__R__ .rk-card.is-flat { background: transparent; box-shadow: none; }
+__R__ .rk-card.is-warn { border-color: var(--rk-warn); }
+__R__ .rk-card.is-danger { border-color: var(--rk-danger); }
+__R__ .rk-stack { display: flex; flex-direction: column; gap: 12px; }
+
+/* ---- Numbers ---- */
+__R__ .rk-num { font-variant-numeric: tabular-nums lining-nums; }
+__R__ .rk-stat-value {
+	font-family: var(--rk-font-num);
+	font-size: 1.85em;
+	font-weight: 600;
+	line-height: 1.1;
+	letter-spacing: -0.01em;
+	font-variant-numeric: tabular-nums lining-nums;
+}
+__R__.rk-paper .rk-stat-value { font-size: 2.1em; }
+__R__ .rk-stat-unit {
+	margin-left: 4px;
+	font-size: var(--font-ui-small);
+	color: var(--rk-faint);
+}
+__R__ .rk-cap {
+	margin-top: 4px;
+	font-size: var(--font-ui-smaller);
+	color: var(--rk-faint);
+}
+__R__ .rk-split {
+	display: flex;
+	justify-content: space-between;
+	gap: 8px;
+	font-size: var(--font-ui-smaller);
+	color: var(--rk-faint);
+	font-variant-numeric: tabular-nums;
+}
+
+/* ---- Meter ---- */
+__R__ .rk-meter {
+	position: relative;
+	height: 6px;
+	margin: 8px 0 6px;
+	border-radius: 99px;
+	background: var(--rk-hair);
+	overflow: hidden;
+}
+__R__ .rk-meter-fill {
+	width: var(--rk-fill, 0%);
+	max-width: 100%;
+	height: 100%;
+	border-radius: inherit;
+	background: var(--rk-accent);
+}
+__R__ .rk-meter.is-good .rk-meter-fill { background: var(--rk-good); }
+__R__ .rk-meter.is-warn .rk-meter-fill { background: var(--rk-warn); }
+__R__ .rk-meter.is-danger .rk-meter-fill { background: var(--rk-danger); }
+__R__.rk-paper .rk-meter {
+	height: 10px;
+	border: 1px solid var(--rk-border);
+	border-radius: 2px 6px 3px 5px;
+	background: transparent;
+}
+__R__.rk-paper .rk-meter-fill {
+	border-radius: 0;
+	background: repeating-linear-gradient(-45deg, var(--rk-ink) 0 1.5px, transparent 1.5px 5px);
+}
+__R__.rk-paper .rk-meter.is-good .rk-meter-fill { background: repeating-linear-gradient(-45deg, var(--rk-good) 0 2px, transparent 2px 5px); }
+__R__.rk-paper .rk-meter.is-warn .rk-meter-fill { background: repeating-linear-gradient(-45deg, var(--rk-warn) 0 2px, transparent 2px 5px); }
+__R__.rk-paper .rk-meter.is-danger .rk-meter-fill { background: repeating-linear-gradient(-45deg, var(--rk-danger) 0 2px, transparent 2px 5px); }
+
+/* ---- Callout ---- */
+__R__ .rk-callout {
+	display: flex;
+	gap: 10px;
+	padding: 9px 12px;
+	border-radius: var(--rk-radius-s);
+	background: var(--rk-card);
+	color: var(--rk-muted);
+	font-size: var(--font-ui-small);
+	line-height: 1.5;
+}
+__R__ .rk-callout::before {
+	content: "";
+	flex: none;
+	width: 3px;
+	border-radius: 2px;
+	background: var(--rk-faint);
+}
+__R__ .rk-callout strong { color: var(--rk-text); }
+__R__ .rk-callout.is-good { background: var(--rk-good-soft); }
+__R__ .rk-callout.is-good::before { background: var(--rk-good); }
+__R__ .rk-callout.is-warn { background: var(--rk-warn-soft); }
+__R__ .rk-callout.is-warn::before { background: var(--rk-warn); }
+__R__ .rk-callout.is-danger { background: var(--rk-danger-soft); }
+__R__ .rk-callout.is-danger::before { background: var(--rk-danger); }
+__R__.rk-paper .rk-callout { border-radius: 3px 12px 10px 3px; }
+
+/* ---- Rows ---- */
+__R__ .rk-row {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 8px 2px;
+	border-bottom: var(--rk-row-sep);
+}
+__R__ .rk-row:last-child { border-bottom: none; }
+__R__ .rk-grow { flex: 1; min-width: 0; }
+__R__ .rk-amt {
+	margin-left: auto;
+	font-weight: 600;
+	white-space: nowrap;
+	font-variant-numeric: tabular-nums lining-nums;
+}
+__R__ .rk-amt-unit {
+	margin-left: 3px;
+	font-weight: 400;
+	font-size: var(--font-ui-smaller);
+	color: var(--rk-faint);
+}
+__R__ .rk-muted { color: var(--rk-faint); }
+__R__ .rk-dot {
+	display: inline-block;
+	flex: none;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: var(--rk-faint);
+}
+
+/* ---- Chips ---- */
+__R__ .rk-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 1px 8px;
+	border-radius: var(--rk-radius-s);
+	background: var(--rk-card);
+	color: var(--rk-muted);
+	font-size: var(--font-ui-smaller);
+	white-space: nowrap;
+}
+__R__.rk-paper .rk-chip { background: transparent; border: 1px solid var(--rk-hair); }
+__R__ .rk-chip.is-good { background: var(--rk-good-soft); color: var(--rk-good); border-color: transparent; }
+__R__ .rk-chip.is-warn { background: var(--rk-warn-soft); color: var(--rk-warn); border-color: transparent; }
+__R__ .rk-chip.is-danger { background: var(--rk-danger-soft); color: var(--rk-danger); border-color: transparent; }
+__R__ .rk-chip.is-accent { background: var(--rk-accent-soft); color: var(--rk-text); border-color: transparent; }
+__R__.rk-paper .rk-chip.is-accent { background: transparent; border-color: var(--rk-border); }
+
+/* ---- Segmented switch ---- */
+__R__ .rk-seg {
+	display: inline-flex;
+	gap: 2px;
+	padding: 2px;
+	border: 1px solid var(--rk-hair);
+	border-radius: calc(var(--radius-s, 4px) + 2px);
+	background: var(--background-secondary);
+}
+__R__ .rk-seg > button {
+	height: auto;
+	padding: 3px 12px;
+	border: none;
+	border-radius: var(--radius-s, 4px);
+	background: transparent;
+	box-shadow: none;
+	color: var(--rk-muted);
+	font-size: var(--font-ui-small);
+}
+__R__ .rk-seg > button.is-active {
+	background: var(--background-primary);
+	color: var(--rk-text);
+	font-weight: 600;
+	box-shadow: var(--shadow-xs, 0 1px 2px rgba(0, 0, 0, 0.08));
+}
+__R__.rk-paper .rk-seg { gap: 14px; padding: 0; border: none; background: transparent; }
+__R__.rk-paper .rk-seg > button { padding: 2px 0; border-radius: 0; }
+__R__.rk-paper .rk-seg > button.is-active {
+	background: linear-gradient(var(--rk-accent), var(--rk-accent)) bottom left / 100% 2px no-repeat;
+	box-shadow: none;
+}
+
+/* ---- Buttons (paper only; default keeps Obsidian buttons) ---- */
+__R__.rk-paper button.mod-cta {
+	border-radius: 999px;
+	background: var(--rk-ink);
+	color: var(--rk-bg);
+	box-shadow: none;
+}
+__R__.rk-paper button.mod-cta:hover { background: var(--rk-ink); opacity: 0.88; }
+__R__.rk-paper button:not(.mod-cta):not(.clickable-icon):not(.rk-plain):not(.rk-seg > button) {
+	border-radius: 999px;
+	border: 1px solid var(--rk-border);
+	background: transparent;
+	box-shadow: none;
+	color: var(--rk-text);
+}
+__R__ .rk-wide { width: 100%; justify-content: center; }
+__R__ .rk-actions { display: flex; gap: 8px; align-items: center; }
+
+/* ---- Modal footer ---- */
+__R__ .rk-modal-kicker {
+	margin: -4px 0 10px;
+	font-size: var(--font-ui-smaller);
+	color: var(--rk-faint);
+	letter-spacing: 0.04em;
+}
+__R__ .rk-modal-foot {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-top: 16px;
+	padding-top: 14px;
+	border-top: 1px solid var(--rk-hair);
+}
+__R__ .rk-modal-foot .rk-foot-note {
+	flex: 1;
+	font-size: var(--font-ui-smaller);
+	color: var(--rk-faint);
+}
+__R__.rk-paper.modal {
+	border: 1px solid var(--rk-border);
+	border-radius: 18px 22px 20px 16px / 20px 16px 22px 18px;
+	box-shadow: 5px 6px 0 -2px rgba(31, 27, 23, 0.18), var(--shadow-l);
+}
+__R__.rk-paper .modal-title { font-family: var(--rk-font-head); }
+__R__.rk-paper .setting-item { border-top: var(--rk-row-sep); }
+__R__.rk-paper input[type="text"],
+__R__.rk-paper input[type="number"],
+__R__.rk-paper input[type="datetime-local"],
+__R__.rk-paper input[type="date"],
+__R__.rk-paper input[type="time"],
+__R__.rk-paper textarea,
+__R__.rk-paper select {
+	background: var(--rk-card);
+	border-color: var(--rk-hair);
+	color: var(--rk-text);
+}
+__R__.rk-paper {
+	--checkbox-color: var(--rk-ink);
+	--checkbox-color-hover: var(--rk-ink);
+	--checkbox-marker-color: var(--rk-bg);
+}
+__R__.rk-paper .checkbox-container.is-enabled { background-color: var(--rk-good); }
+/* ===================== end of shared kit ===================== */

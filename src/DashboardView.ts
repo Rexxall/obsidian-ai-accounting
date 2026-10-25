@@ -11,7 +11,7 @@ export const VIEW_TYPE_DASHBOARD = 'ai-accounting-dashboard';
 
 enum PanelTab {
     Transactions = '明细',
-    Charts = '图表'
+    Charts = '分析'
 }
 // 新增：图表视图范围类型
 type ChartScope = 'day' | 'month' | 'year';
@@ -233,6 +233,8 @@ export class DashboardView extends ItemView {
             this.contentEl.empty(); // Preserve the native ItemView header.
             container = this.contentEl.createEl('div', { cls: 'ai-accounting-dashboard-container' });
         }
+        this.contentEl.addClass('aa-view-content');
+        container.toggleClass('rk-paper', !!this.plugin.settings.paperStyle);
 
         // We generally shouldn't empty container unless we reconstruct everything.
         // But for tab switching or date change, we often do.
@@ -267,42 +269,48 @@ export class DashboardView extends ItemView {
     }
 
     private renderHeader(container: HTMLElement, ctx: RenderContext) {
-        const headerContainer = container.createEl('div', { cls: 'dashboard-header-container' });
-        const topBar = headerContainer.createEl('div', { cls: 'dashboard-top-bar' });
+        const head = container.createDiv({ cls: 'rk-head aa-head' });
+        const headMain = head.createDiv({ cls: 'rk-head-main' });
+        headMain.createDiv({ cls: 'rk-kicker', text: 'AI Accounting · 我的账本' });
+        headMain.createEl('h1', { cls: 'rk-title', text: this.formatPeriodTitle(ctx) });
 
-        // Left: Title + Tabs
-        const leftGroup = topBar.createEl('div', { cls: 'top-bar-left' });
-        leftGroup.createEl('h1', { text: '我的账本' });
-        leftGroup.createEl('p', { text: '支出记录与分类汇总', cls: 'ledger-subtitle' });
-        const heroActions = topBar.createDiv('ledger-hero-actions');
-        const settingsEntry = heroActions.createEl('button', { text: '插件设置', cls: 'plugin-settings-entry' });
-        settingsEntry.addEventListener('click', () => {
+        const actions = head.createDiv({ cls: 'rk-head-actions' });
+        const refreshBtn = actions.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': '刷新' } });
+        setIcon(refreshBtn, 'refresh-cw');
+        refreshBtn.onclick = () => this.refresh();
+        const exportBtn = actions.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': '导出 CSV' } });
+        setIcon(exportBtn, 'download');
+        exportBtn.onclick = () => { if (ctx.rawStats) this.exportData(ctx.rawStats); };
+        const settingsBtn = actions.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': '插件设置' } });
+        setIcon(settingsBtn, 'settings');
+        settingsBtn.onclick = () => {
             const settings = (this.app as typeof this.app & { setting?: { open(): void; openTabById(id: string): void } }).setting;
             settings?.open();
             settings?.openTabById(this.plugin.manifest.id);
-        });
+        };
+        const quickAddBtn = actions.createEl('button', { text: '记一笔', cls: 'mod-cta', attr: { 'aria-label': '快速录入' } });
+        quickAddBtn.onclick = () => {
+            const qf = container.querySelector('.quick-form-wrapper');
+            if (qf) qf.classList.toggle('is-hidden');
+            (qf?.querySelector('input[type="number"]') as HTMLInputElement | null)?.focus();
+        };
 
-        const navigation = headerContainer.createDiv('ledger-navigation');
-
-        const tabsContainer = navigation.createEl('div', { cls: 'tabs-bar compact' });
+        // Tabs, scope and period
+        const toolbar = container.createDiv({ cls: 'aa-toolbar' });
+        const tabs = toolbar.createDiv({ cls: 'rk-seg' });
         [PanelTab.Transactions, PanelTab.Charts].forEach(key => {
-            const btn = tabsContainer.createEl('button', { text: key, cls: 'tab-btn-compact' });
-            btn.classList.toggle('is-active', this.currentTab === key);
+            const btn = tabs.createEl('button', { text: key, cls: this.currentTab === key ? 'is-active' : '' });
             btn.onclick = () => { this.currentTab = key; void this.render(); };
         });
 
-        // Right: Scope + Date Nav + Quick Add + Actions
-        const rightGroup = headerContainer.createEl('div', { cls: 'top-bar-right' });
-        // Scope Buttons
-        const scopeGroup = navigation.createEl('div', { cls: 'scope-group-compact' });
+        const scopeGroup = toolbar.createDiv({ cls: 'rk-seg' });
         const scopes: Array<{ key: ChartScope, label: string }> = [
             { key: 'day', label: '当日' },
             { key: 'month', label: '月度' },
             { key: 'year', label: '年度' },
         ];
         scopes.forEach(s => {
-            const btn = scopeGroup.createEl('button', { text: s.label, cls: 'scope-btn-compact' });
-            btn.classList.toggle('is-active', this.chartScope === s.key);
+            const btn = scopeGroup.createEl('button', { text: s.label, cls: this.chartScope === s.key ? 'is-active' : '' });
             btn.onclick = () => {
                 this.chartScope = s.key;
                 this.selectedPrimaryCategory = null;
@@ -311,18 +319,15 @@ export class DashboardView extends ItemView {
             };
         });
 
-        // Date Nav
-        const navSection = rightGroup.createEl('div', { cls: 'nav-section-compact' });
-        const prevBtn = navSection.createEl('button', { text: '◀', cls: 'nav-btn-icon' });
+        const navSection = toolbar.createDiv({ cls: 'aa-period' });
+        const prevBtn = navSection.createEl('button', { text: '‹', cls: 'aa-nav-btn', attr: { 'aria-label': '上一段' } });
         prevBtn.onclick = async () => { this.adjustDate(-1); await this.render(); };
-
-        const datePickerContainer = navSection.createEl('div', { cls: 'nav-picker-container' });
         if (this.chartScope === 'day') {
-            const dateInput = datePickerContainer.createEl('input', { type: 'date', cls: 'nav-date-input' });
+            const dateInput = navSection.createEl('input', { type: 'date', cls: 'aa-period-input' });
             dateInput.value = ctx.yyyy_mm_dd;
             dateInput.onchange = () => { if (dateInput.value) { this.currentDate = new Date(dateInput.value); void this.render(); } };
         } else if (this.chartScope === 'month') {
-            const monthInput = datePickerContainer.createEl('input', { type: 'month', cls: 'nav-date-input' });
+            const monthInput = navSection.createEl('input', { type: 'month', cls: 'aa-period-input' });
             monthInput.value = ctx.yyyy_mm;
             monthInput.onchange = () => {
                 if (monthInput.value) {
@@ -332,25 +337,23 @@ export class DashboardView extends ItemView {
                 }
             };
         } else {
-            const yearInput = datePickerContainer.createEl('input', { type: 'number', cls: 'nav-date-input year-input' });
+            const yearInput = navSection.createEl('input', { type: 'number', cls: 'aa-period-input is-year' });
             yearInput.value = ctx.yyyy;
             yearInput.onchange = () => { if (yearInput.value) { this.currentDate.setFullYear(parseInt(yearInput.value)); void this.render(); } };
         }
-
-        const nextBtn = navSection.createEl('button', { text: '▶', cls: 'nav-btn-icon' });
+        const nextBtn = navSection.createEl('button', { text: '›', cls: 'aa-nav-btn', attr: { 'aria-label': '下一段' } });
         nextBtn.onclick = async () => { this.adjustDate(1); await this.render(); };
 
-        // Currency
-        const currencySelect = rightGroup.createEl('select', { cls: 'dropdown compact-dropdown' });
+        const selects = toolbar.createDiv({ cls: 'aa-selects' });
+        const currencySelect = selects.createEl('select', { cls: 'dropdown', attr: { 'aria-label': '显示币种' } });
         ['CNY', 'JPY', 'USD', 'EUR', 'HKD', 'GBP'].forEach(cur => {
             const opt = currencySelect.createEl('option', { text: cur, value: cur });
             if (cur === this.displayCurrency) opt.selected = true;
         });
         currencySelect.onchange = async () => { this.displayCurrency = currencySelect.value; await this.render(); };
 
-        // User Filter
         if (this.plugin.settings.users.length > 0) {
-            const userSelect = rightGroup.createEl('select', { cls: 'dropdown compact-dropdown' });
+            const userSelect = selects.createEl('select', { cls: 'dropdown', attr: { 'aria-label': '成员' } });
             const allOpt = userSelect.createEl('option', { text: '全部成员', value: 'all' });
             if (this.selectedUserId === 'all') allOpt.selected = true;
             this.plugin.settings.users.forEach(u => {
@@ -364,34 +367,14 @@ export class DashboardView extends ItemView {
             };
         }
 
-        // Actions
-        const refreshBtn = heroActions.createEl('button', { cls: 'icon-btn', attr: { 'aria-label': '刷新' } });
-        setIcon(refreshBtn, 'refresh-cw');
-        refreshBtn.onclick = () => this.refresh();
-
-        const exportBtn = heroActions.createEl('button', { cls: 'icon-btn', attr: { 'aria-label': '导出' } });
-        setIcon(exportBtn, 'download');
-        exportBtn.onclick = () => { if (ctx.rawStats) this.exportData(ctx.rawStats); };
-
-        const quickAddBtn = heroActions.createEl('button', { cls: 'quick-add-plus-btn mod-cta', attr: { 'aria-label': '快速录入' } });
-        quickAddBtn.createSpan({ text: '+', cls: 'ledger-add-icon' });
-        quickAddBtn.createSpan({ text: '记一笔' });
-        quickAddBtn.onclick = () => {
-            const qf = container.querySelector('.quick-form-wrapper');
-            if (qf) qf.classList.toggle('is-hidden');
-        };
-
-        // Controls Bar (Filters)
+        // Filters (ledger tab only)
         if (this.currentTab === PanelTab.Transactions) {
-            const controlsBar = headerContainer.createEl('div', { cls: 'dashboard-controls-bar' });
-            const filtersContainer = controlsBar.createEl('div', { cls: 'filters-container' });
-
-            const searchInput = filtersContainer.createEl('input', { type: 'text', attr: { id: 'aa-search', placeholder: '搜索商户或备注…' } }) as HTMLInputElement;
-            searchInput.classList.add('compact-input');
+            const filters = container.createDiv({ cls: 'aa-filters', attr: { id: 'aa-filters' } });
+            const searchInput = filters.createEl('input', { type: 'text', cls: 'aa-search', attr: { id: 'aa-search', placeholder: '搜索商户或备注…（/）' } }) as HTMLInputElement;
             searchInput.value = this.searchQuery;
             searchInput.oninput = () => {
                 this.searchQuery = searchInput.value || '';
-                void this.refreshGridOnly(); // Only refresh grid!
+                void this.refreshGridOnly();
             };
             searchInput.onkeydown = (e) => { if (e.key === 'Enter') void this.refreshGridOnly(); };
 
@@ -405,10 +388,8 @@ export class DashboardView extends ItemView {
                     if (pm) methods.add(pm);
                 });
 
-                const catGroup = filtersContainer.createEl('div', { cls: 'dropdown-group compact' });
-                catGroup.createEl('label', { text: '分类：', cls: 'compact-label' });
-                const catSelect = catGroup.createEl('select', { cls: 'filter-dropdown compact' });
-                catSelect.createEl('option', { text: '全部', value: '' });
+                const catSelect = filters.createEl('select', { cls: 'dropdown', attr: { 'aria-label': '分类' } });
+                catSelect.createEl('option', { text: '全部分类', value: '' });
                 Array.from(categories).sort().forEach(cat => {
                     const opt = catSelect.createEl('option', { text: cat, value: cat });
                     if (this.selectedCats.has(cat)) opt.selected = true;
@@ -419,10 +400,8 @@ export class DashboardView extends ItemView {
                     void this.refreshGridOnly();
                 };
 
-                const pmGroup = filtersContainer.createEl('div', { cls: 'dropdown-group compact' });
-                pmGroup.createEl('label', { text: '支付：', cls: 'compact-label' });
-                const pmSelect = pmGroup.createEl('select', { cls: 'filter-dropdown compact' });
-                pmSelect.createEl('option', { text: '全部', value: '' });
+                const pmSelect = filters.createEl('select', { cls: 'dropdown', attr: { 'aria-label': '支付方式' } });
+                pmSelect.createEl('option', { text: '全部支付方式', value: '' });
                 Array.from(methods).sort().forEach(pm => {
                     const opt = pmSelect.createEl('option', { text: pm, value: pm });
                     if (this.selectedPMs.has(pm)) opt.selected = true;
@@ -435,8 +414,14 @@ export class DashboardView extends ItemView {
             }
         }
 
-        // Quick Form Rendering
         this.renderQuickForm(container);
+    }
+
+    private formatPeriodTitle(ctx: RenderContext): string {
+        const [y, m, d] = ctx.yyyy_mm_dd.split('-').map(part => parseInt(part, 10));
+        if (this.chartScope === 'year') return `${y} 年`;
+        if (this.chartScope === 'month') return `${y} 年 ${m} 月`;
+        return `${y} 年 ${m} 月 ${d} 日`;
     }
 
     private renderQuickForm(container: HTMLElement) {
@@ -503,9 +488,9 @@ export class DashboardView extends ItemView {
     private async renderGrid(dashboardGrid: HTMLElement, ctx: any) {
         const { rawStats, navRawStats, navLabel } = ctx;
         if (this.allStats.length === 0 || !rawStats) {
-            const empty = dashboardGrid.createDiv({ cls: 'aa-empty-state' });
-            empty.createEl('h2', { text: this.allStats.length === 0 ? '从第一笔记录开始' : '这个时间范围还没有记录' });
-            empty.createEl('p', { text: '可以直接录入一笔支出，或用上方日期选择器查看其他月份。已有账单也可以通过 AI 收件箱提取，核对后入账。' });
+            const empty = dashboardGrid.createDiv({ cls: 'rk-card aa-empty-state' });
+            empty.createEl('h2', { cls: 'rk-title', text: this.allStats.length === 0 ? '从第一笔记录开始' : '这个时间范围还没有记录' });
+            empty.createEl('p', { cls: 'rk-sub', text: '可以直接录入一笔支出，或用上方日期选择器查看其他月份。已有账单也可以通过 AI 收件箱提取，核对后入账。' });
             const add = empty.createEl('button', { text: '录入一笔支出', cls: 'mod-cta' });
             add.onclick = () => {
                 const form = this.contentEl.querySelector('.quick-form-wrapper');
@@ -516,7 +501,7 @@ export class DashboardView extends ItemView {
         }
 
         // Apply filters
-        let statsForDisplay = rawStats ? this.getFilteredTransactions(rawStats) : this.buildStatsFromTransactions([], navLabel);
+        const statsForDisplay = rawStats ? this.getFilteredTransactions(rawStats) : this.buildStatsFromTransactions([], navLabel);
         const displayStats = await this.getConvertedStats(statsForDisplay);
 
         let navDisplayStats = displayStats;
@@ -525,9 +510,7 @@ export class DashboardView extends ItemView {
             navDisplayStats = await this.getConvertedStats(filteredNav);
         }
 
-        let summaryTitle = navLabel + ' 汇总';
-
-        // Calculate Today/Week Stats (Global context)
+        // Today / this week (whole ledger)
         const todayStr = new Date().toISOString().slice(0, 10);
         const baseCur = this.plugin.settings.baseCurrency;
         const targetCur = this.displayCurrency;
@@ -541,76 +524,74 @@ export class DashboardView extends ItemView {
             Promise.all(weekTx.map(t => this.plugin.fxService.convert(t.baseAmount, baseCur, targetCur, t.date))).then(arr => arr.reduce((a, b) => a + b, 0))
         ]);
 
-        // --- Summary Board ---
-        const summaryBoard = dashboardGrid.createEl('div', { cls: 'summary-board' });
-
-        // 1. Metrics Panel
-        const metricsPanel = summaryBoard.createEl('div', { cls: 'summary-panel metrics-panel' });
-        metricsPanel.createEl('h3', { text: summaryTitle, cls: 'panel-title' });
-        const metricsGrid = metricsPanel.createEl('div', { cls: 'metrics-grid' });
-
-        const totalCard = this.createMetricCard(metricsGrid, '期间支出', this.formatAmount(displayStats.total), this.displayCurrency, 'total-card');
-        totalCard.labelEl.id = 'aa-dynamic-total-label';
-        totalCard.valEl.id = 'aa-dynamic-total-val';
-        
-        const countCard = this.createMetricCard(metricsGrid, '交易笔数', displayStats.transactions.length.toString(), '笔');
-        countCard.labelEl.id = 'aa-dynamic-count-label';
-        countCard.valEl.id = 'aa-dynamic-count-val';
-
-        this.createMetricCard(metricsGrid, '今日支出', this.formatAmount(todayTotal), this.displayCurrency);
-        this.createMetricCard(metricsGrid, '本周支出', this.formatAmount(weekTotal), this.displayCurrency);
-
-        // 2. Insights Panel (Top Expenses)
-        const insightsPanel = summaryBoard.createEl('div', { cls: 'summary-panel insights-panel' });
-        insightsPanel.createEl('h3', { text: '主要支出', cls: 'panel-title' });
-
-        const insightsGrid = insightsPanel.createEl('div', { cls: 'insights-grid-compact' });
-        // Top 2 as requested
-        const topCats = Object.entries(displayStats.categories).sort((a, b) => b[1] - a[1]).slice(0, 2);
-
-        if (topCats.length > 0) {
-            topCats.forEach(([cat, val], idx) => {
-                const card = insightsGrid.createEl('div', { cls: 'insight-card-compact' });
-                card.createEl('div', { text: cat, cls: 'insight-card-title' });
-                card.createEl('div', { text: this.formatAmount(val), cls: 'insight-card-value' });
-            });
-        } else {
-            insightsGrid.createEl('p', { text: '暂无数据', cls: 'no-data-text' });
-        }
+        const renderTotals = (parent: HTMLElement) => {
+            const card = parent.createDiv({ cls: 'rk-card aa-totals' });
+            const total = this.createMetricCard(card, '期间支出', this.formatAmount(displayStats.total), this.displayCurrency, 'is-main');
+            total.labelEl.id = 'aa-dynamic-total-label';
+            total.valEl.id = 'aa-dynamic-total-val';
+            const minor = card.createDiv({ cls: 'aa-minor-metrics' });
+            const count = this.createMetricCard(minor, '交易笔数', displayStats.transactions.length.toString(), '笔');
+            count.labelEl.id = 'aa-dynamic-count-label';
+            count.valEl.id = 'aa-dynamic-count-val';
+            this.createMetricCard(minor, '今日', this.formatAmount(todayTotal), this.displayCurrency);
+            this.createMetricCard(minor, '本周', this.formatAmount(weekTotal), this.displayCurrency);
+        };
 
         if (this.currentTab === PanelTab.Transactions) {
-            void this.renderTransactionDetailView(dashboardGrid, displayStats, navDisplayStats);
-        } else if (this.currentTab === PanelTab.Charts) {
-            const chartCard = dashboardGrid.createEl('div', { cls: 'dashboard-card chart-card' });
-            const title = this.selectedPrimaryCategory ? `📝 ${this.selectedPrimaryCategory} 明细` : '🍕 支出分类占比';
-            chartCard.createEl('h2', { text: title });
+            // The ledger is the main column; totals and categories sit beside it.
+            const layout = dashboardGrid.createDiv({ cls: 'aa-ledger-layout' });
+            const main = layout.createDiv({ cls: 'aa-ledger-main' });
+            const aside = layout.createDiv({ cls: 'aa-ledger-aside' });
+            renderTotals(aside);
 
+            const where = aside.createDiv({ cls: 'rk-card is-flat aa-where' });
+            where.createDiv({ cls: 'rk-label', text: '花在哪' });
+            const cats = Object.entries(displayStats.categories).sort((a, b) => b[1] - a[1]);
+            const colors = this.seriesColors();
+            if (cats.length === 0) where.createDiv({ cls: 'rk-cap', text: '暂无数据' });
+            cats.forEach(([cat, val], index) => {
+                const row = where.createDiv({ cls: `rk-row aa-where-row${this.selectedCats.has(cat) ? ' is-active' : ''}` });
+                row.createSpan({ cls: 'rk-dot' }).style.background = colors[index % colors.length] || '';
+                row.createSpan({ cls: 'rk-grow', text: cat });
+                row.createSpan({ cls: 'rk-amt', text: this.formatAmount(val) });
+                row.onclick = () => {
+                    const active = this.selectedCats.has(cat);
+                    this.selectedCats.clear();
+                    if (!active) this.selectedCats.add(cat);
+                    void this.render();
+                };
+            });
+
+            void this.renderTransactionDetailView(main, aside, displayStats, navDisplayStats);
+        } else if (this.currentTab === PanelTab.Charts) {
+            renderTotals(dashboardGrid);
+            const charts = dashboardGrid.createDiv({ cls: 'aa-charts' });
+
+            const chartCard = charts.createDiv({ cls: 'rk-card aa-chart-card' });
+            const chartHead = chartCard.createDiv({ cls: 'aa-card-head' });
+            chartHead.createDiv({ cls: 'rk-label', text: this.selectedPrimaryCategory ? `${this.selectedPrimaryCategory} · 子分类` : '支出分类' });
             if (this.selectedPrimaryCategory) {
-                const backBtn = chartCard.createEl('button', { text: '🔙 返回主分类', cls: 'back-btn' });
+                const backBtn = chartHead.createEl('button', { text: '← 返回主分类', cls: 'aa-link-btn' });
                 backBtn.onclick = () => { this.selectedPrimaryCategory = null; void this.render(); };
             }
-            const canvasWrapper = chartCard.createEl('div', { cls: 'chart-container' });
-            const canvas = canvasWrapper.createEl('canvas');
+            const canvas = chartCard.createDiv({ cls: 'aa-chart' }).createEl('canvas');
             this.renderCategoryChart(canvas, displayStats);
+            chartCard.createDiv({ cls: 'rk-cap', text: '点分类看子分类；按住 ⌥ 或 ⌘ 点击可以重命名分类。' });
 
-            const trendCard = dashboardGrid.createEl('div', { cls: 'dashboard-card trend-card' });
-            trendCard.createEl('h2', { text: '📉 历史月度趋势' });
-            const trendWrapper = trendCard.createEl('div', { cls: 'chart-container' });
-            const trendCanvas = trendWrapper.createEl('canvas');
+            const trendCard = charts.createDiv({ cls: 'rk-card aa-chart-card' });
+            trendCard.createDiv({ cls: 'rk-label', text: '月度趋势' });
+            const trendCanvas = trendCard.createDiv({ cls: 'aa-chart' }).createEl('canvas');
             void this.renderTrendChart(trendCanvas, this.allStats);
 
-            const paymentCard = dashboardGrid.createEl('div', { cls: 'dashboard-card payment-card' });
-            paymentCard.createEl('h2', { text: '💳 支付方式分布' });
-            const paymentWrapper = paymentCard.createEl('div', { cls: 'chart-container' });
-            const paymentCanvas = paymentWrapper.createEl('canvas');
+            const paymentCard = charts.createDiv({ cls: 'rk-card aa-chart-card' });
+            paymentCard.createDiv({ cls: 'rk-label', text: '支付方式' });
+            const paymentCanvas = paymentCard.createDiv({ cls: 'aa-chart' }).createEl('canvas');
             this.renderPaymentMethodChart(paymentCanvas, displayStats);
 
-            // Contribution Chart (Multi-user)
             if (this.selectedUserId === 'all' && this.plugin.settings.users.length > 1) {
-                const contribCard = dashboardGrid.createEl('div', { cls: 'dashboard-card contrib-card' });
-                contribCard.createEl('h2', { text: '👥 成员贡献对比' });
-                const contribWrapper = contribCard.createEl('div', { cls: 'chart-container' });
-                const contribCanvas = contribWrapper.createEl('canvas');
+                const contribCard = charts.createDiv({ cls: 'rk-card aa-chart-card' });
+                contribCard.createDiv({ cls: 'rk-label', text: '成员' });
+                const contribCanvas = contribCard.createDiv({ cls: 'aa-chart' }).createEl('canvas');
                 this.renderContributionChart(contribCanvas, rawStats);
             }
         }
@@ -646,11 +627,11 @@ export class DashboardView extends ItemView {
 
     // 辅助：创建指标卡片
     private createMetricCard(parent: HTMLElement, label: string, value: string, suffix: string = '', cls: string = '') {
-        const card = parent.createEl('div', { cls: `metric-card ${cls}` });
-        const labelEl = card.createEl('span', { text: label, cls: 'metric-label' });
-        const valContainer = card.createEl('div', { cls: 'metric-value-container' });
-        const valEl = valContainer.createEl('span', { text: value, cls: 'metric-value' });
-        if (suffix) valContainer.createEl('span', { text: suffix, cls: 'metric-suffix' });
+        const card = parent.createDiv({ cls: `aa-metric ${cls}`.trim() });
+        const labelEl = card.createSpan({ text: label, cls: 'rk-label' });
+        const valContainer = card.createDiv();
+        const valEl = valContainer.createSpan({ text: value, cls: 'rk-stat-value' });
+        if (suffix) valContainer.createSpan({ text: suffix, cls: 'rk-stat-unit' });
         return { labelEl, valEl };
     }
 
@@ -673,31 +654,26 @@ export class DashboardView extends ItemView {
         } as MonthlyStats;
     }
 
-    private async renderTransactionDetailView(parent: HTMLElement, stats: MonthlyStats, navStats: MonthlyStats) {
-        const grid = parent.createEl('div', { cls: 'daily-view-grid' });
+    private async renderTransactionDetailView(parent: HTMLElement, aside: HTMLElement, stats: MonthlyStats, navStats: MonthlyStats) {
+        // 1. The ledger itself
+        const detailsCard = parent.createDiv({ cls: 'aa-ledger' });
 
-        // 1. Table Side (Transaction Details - Now on the left)
-        const detailsCard = grid.createEl('div', { cls: 'dashboard-card transaction-details-card' });
+        const analysis = aside.createEl('details', { cls: 'rk-card is-flat aa-analysis' });
+        analysis.createEl('summary', { cls: 'rk-label', text: '按周期看 · 分类细分' });
+        const rightPanel = analysis.createDiv('aa-analysis-body');
 
-        detailsCard.createEl('h2', { text: '交易明细', cls: 'ledger-section-title' });
-        const analysis = grid.createEl('details', { cls: 'ledger-analysis' });
-        analysis.createEl('summary', { text: '周期明细与分类分析' });
-        const rightPanel = analysis.createDiv('daily-right-panel');
-
-        // --- SCOPE-AWARE NAVIGATION (Right Panel) ---
-        const navCard = rightPanel.createEl('div', { cls: 'dashboard-card daily-card' });
+        // --- Scope-aware navigation ---
+        const navCard = rightPanel.createDiv({ cls: 'aa-nav-card' });
         const navTitle = this.chartScope === 'day' ? '每日开支' :
             this.chartScope === 'month' ? '月度开支' : '年度开支';
-        navCard.createEl('h2', { text: navTitle });
+        navCard.createDiv({ cls: 'rk-cap', text: navTitle });
 
-        const navTable = navCard.createEl('table', { cls: 'daily-table' });
+        const navTable = navCard.createEl('table', { cls: 'aa-table is-compact' });
         const navThead = navTable.createEl('thead');
         const navHeaderRow = navThead.createEl('tr');
 
         const createNavSortHeader = (text: string, col: 'period' | 'amount') => {
-            const th = navHeaderRow.createEl('th', { text });
-            th.style.cursor = 'pointer';
-            th.style.userSelect = 'none';
+            const th = navHeaderRow.createEl('th', { text, cls: 'is-sortable' });
             if (this.navSortColumn === col) {
                 th.innerText += this.navSortDirection === 'asc' ? ' ▲' : ' ▼';
             }
@@ -767,10 +743,9 @@ export class DashboardView extends ItemView {
 
         sortedItems.forEach(key => {
             const amount = itemAmounts[key] || 0;
-            const row = navTbody.createEl('tr', { cls: key === activeKey ? 'is-selected' : '' });
-            row.style.cursor = 'pointer';
-            row.createEl('td', { text: key });
-            row.createEl('td', { text: `${this.formatAmount(amount)} ${this.displayCurrency}` });
+            const row = navTbody.createEl('tr', { cls: `is-clickable${key === activeKey ? ' is-selected' : ''}` });
+            row.createEl('td', { text: key, cls: 'rk-num' });
+            row.createEl('td', { text: `${this.formatAmount(amount)} ${this.displayCurrency}`, cls: 'rk-num is-right' });
 
             row.onclick = () => {
                 if (this.chartScope === 'day') {
@@ -790,30 +765,30 @@ export class DashboardView extends ItemView {
         });
 
         // --- SUB-CHART (Right Panel) ---
-        const chartCard = rightPanel.createEl('div', { cls: 'dashboard-card daily-chart-card' });
+        const chartCard = rightPanel.createDiv({ cls: 'aa-nav-chart' });
         const displayDate = activeKey;
 
         if (this.selectedSecondaryCategory && this.selectedDailyCategory) {
-            chartCard.createEl('h2', { text: `📊 ${displayDate} - ${this.selectedDailyCategory} > ${this.selectedSecondaryCategory}` });
-            const backBtn = chartCard.createEl('button', { text: '🔙 返回 ' + this.selectedDailyCategory, cls: 'back-btn' });
+            chartCard.createDiv({ cls: 'rk-cap', text: `${displayDate} · ${this.selectedDailyCategory} › ${this.selectedSecondaryCategory}` });
+            const backBtn = chartCard.createEl('button', { text: '← 返回 ' + this.selectedDailyCategory, cls: 'aa-link-btn' });
             backBtn.onclick = () => {
                 this.selectedSecondaryCategory = null;
                 void this.render();
             };
         } else if (this.selectedDailyCategory) {
-            chartCard.createEl('h2', { text: `📊 ${displayDate} - ${this.selectedDailyCategory}` });
-            const backBtn = chartCard.createEl('button', { text: '🔙 返回全部分类', cls: 'back-btn' });
+            chartCard.createDiv({ cls: 'rk-cap', text: `${displayDate} · ${this.selectedDailyCategory}` });
+            const backBtn = chartCard.createEl('button', { text: '← 返回全部分类', cls: 'aa-link-btn' });
             backBtn.onclick = () => {
                 this.selectedDailyCategory = null;
                 this.selectedSecondaryCategory = null;
                 void this.render();
             };
         } else {
-            chartCard.createEl('h2', { text: displayDate ? `📊 ${displayDate} 分类统计` : '📊 每日明细' });
+            chartCard.createDiv({ cls: 'rk-cap', text: displayDate ? `${displayDate} 分类统计` : '每日明细' });
         }
 
         if (displayDate) {
-            const canvasWrapper = chartCard.createEl('div', { cls: 'chart-container daily-chart-container' });
+            const canvasWrapper = chartCard.createDiv({ cls: 'aa-chart is-small' });
             const canvas = canvasWrapper.createEl('canvas');
             this.renderDailyCategoryChart(canvas, navStats, displayDate);
 
@@ -878,8 +853,8 @@ export class DashboardView extends ItemView {
             if (filteredTransactions.length >= 0) { // Keep table even if empty to show Quick Add
 
                 // Batch Action Bar
-                const batchBar = detailsCard.createEl('div', { cls: 'batch-actions-bar', attr: { style: 'margin-bottom: 10px; display: none; align-items: center; gap: 10px; padding: 8px; background: var(--background-secondary); border-radius: 4px;' } });
-                const batchCount = batchBar.createEl('span', { text: '已选择 0 项' });
+                const batchBar = detailsCard.createDiv({ cls: 'rk-callout aa-batch-bar' });
+                const batchCount = batchBar.createSpan({ cls: 'rk-grow', text: '已选择 0 项' });
                 const batchSplitBtn = batchBar.createEl('button', { text: '批量 AA', cls: 'mod-cta' });
 
                 const selectedSet = new Set<string>();
@@ -918,9 +893,9 @@ export class DashboardView extends ItemView {
 
                     if (isSelecting) {
                         batchCount.innerText = `已选择 ${selectedSet.size} 项`;
-                        batchBar.style.display = 'flex';
+                        batchBar.addClass('is-visible');
                     } else {
-                        batchBar.style.display = 'none';
+                        batchBar.removeClass('is-visible');
                     }
                 };
 
@@ -935,24 +910,24 @@ export class DashboardView extends ItemView {
                     const existing = detailsCard.querySelector('.batch-aa-panel');
                     if (existing) { existing.remove(); return; }
 
-                    const panel = detailsCard.createEl('div', { cls: 'batch-aa-panel info-panel', attr: { style: 'margin-top: 10px; padding: 10px; border: 1px dashed var(--text-accent);' } });
-                    const detailTable = detailsCard.querySelector('.daily-table');
+                    const panel = detailsCard.createDiv({ cls: 'rk-card aa-split-panel batch-aa-panel' });
+                    const detailTable = detailsCard.querySelector('.aa-table');
                     if (detailTable) detailsCard.insertBefore(panel, detailTable);
 
-                    panel.createEl('h4', { text: `批量分账 (${selectedSet.size} 笔)`, attr: { style: 'margin: 0 0 10px 0;' } });
+                    panel.createDiv({ cls: 'rk-label', text: `批量分账 · ${selectedSet.size} 笔` });
 
                     const userChecks: Record<string, HTMLInputElement> = {};
-                    const usersContainer = panel.createEl('div', { attr: { style: 'display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;' } });
+                    const usersContainer = panel.createDiv({ cls: 'aa-split-users is-inline' });
 
                     this.plugin.settings.users.forEach(u => {
-                        const label = usersContainer.createEl('label', { attr: { style: 'display: flex; align-items: center; gap: 4px;' } });
+                        const label = usersContainer.createEl('label', { cls: 'aa-split-user' });
                         const chk = label.createEl('input', { type: 'checkbox' });
                         chk.checked = true;
                         label.createEl('span', { text: u.name });
                         userChecks[u.id] = chk;
                     });
 
-                    const actionContainer = panel.createEl('div', { attr: { style: 'display: flex; justify-content: flex-end; gap: 8px;' } });
+                    const actionContainer = panel.createDiv({ cls: 'rk-actions aa-split-actions' });
                     const confirmBtn = actionContainer.createEl('button', { text: '确认批量分账', cls: 'mod-cta' });
 
                     confirmBtn.onclick = async () => {
@@ -995,12 +970,12 @@ export class DashboardView extends ItemView {
                     cancelBtn.onclick = () => panel.remove();
                 };
 
-                const detailTable = detailsCard.createEl('table', { cls: 'daily-table' });
+                const detailTable = detailsCard.createEl('table', { cls: 'aa-table' });
                 const detailThead = detailTable.createEl('thead');
                 const detailHeaderRow = detailThead.createEl('tr');
 
                 // Header Checkbox
-                const checkTh = detailHeaderRow.createEl('th', { cls: 'checkbox-col hide-mobile', attr: { style: 'width: 30px;', 'data-hide': 'mobile' } });
+                const checkTh = detailHeaderRow.createEl('th', { cls: 'checkbox-col hide-mobile', attr: { 'data-hide': 'mobile' } });
                 const masterCheck = checkTh.createEl('input', { type: 'checkbox' });
                 masterCheck.onchange = () => {
                     const isChecked = masterCheck.checked;
@@ -1020,8 +995,7 @@ export class DashboardView extends ItemView {
                     const th = detailHeaderRow.createEl('th', { text, cls: (cls || '') });
                     if (width) th.style.width = width;
                     if (col !== 'action') {
-                        th.style.cursor = 'pointer';
-                        th.style.userSelect = 'none';
+                        th.addClass('is-sortable');
                         if (this.sortColumn === col) {
                             th.innerText += this.sortDirection === 'asc' ? ' ▲' : ' ▼';
                         }
@@ -1041,13 +1015,30 @@ export class DashboardView extends ItemView {
                 createSortHeader('日期', 'date', '100px', 'date-col hide-mobile').setAttribute('data-hide', 'mobile');
                 createSortHeader('描述', 'description');
                 createSortHeader('分类', 'category', undefined, 'hide-mobile').setAttribute('data-hide', 'mobile');
-                createSortHeader('金额', 'amount');
+                createSortHeader('金额', 'amount', undefined, 'is-right');
                 createSortHeader('支付方式', 'paymentMethod', undefined, 'hide-mobile').setAttribute('data-hide', 'mobile');
                 detailHeaderRow.createEl('th', { text: '操作', cls: 'hide-mobile', attr: { 'data-hide': 'mobile' } });
 
                 const detailTbody = detailTable.createEl('tbody');
+                // Same date, description and amount more than once: real repeat purchases, kept apart on purpose.
+                const twinCounts = new Map<string, number>();
                 for (const tx of filteredTransactions) {
-                    const row = detailTbody.createEl('tr');
+                    const key = `${tx.userId}|${tx.date}|${tx.description}|${tx.amount}|${tx.currency}`;
+                    twinCounts.set(key, (twinCounts.get(key) || 0) + 1);
+                }
+                // When sorted by date, each day gets a header row with its total, like a page in a ledger.
+                const groupByDay = this.sortColumn === 'date';
+                detailTable.toggleClass('is-grouped', groupByDay);
+                const dayTotals = new Map<string, { el: HTMLElement, total: number }>();
+                for (const tx of filteredTransactions) {
+                    if (groupByDay && !dayTotals.has(tx.date)) {
+                        const dayRow = detailTbody.createEl('tr', { cls: 'aa-day-row' });
+                        const cell = dayRow.createEl('td', { attr: { colspan: '7' } });
+                        cell.createSpan({ cls: 'aa-day-label', text: this.formatDayLabel(tx.date) });
+                        const totalEl = cell.createSpan({ cls: 'aa-day-total rk-num' });
+                        dayTotals.set(tx.date, { el: totalEl, total: 0 });
+                    }
+                    const row = detailTbody.createEl('tr', { cls: 'aa-tx-row' });
 
                     // Row Checkbox
                     const checkTd = row.createEl('td', { cls: 'checkbox-col hide-mobile', attr: { 'data-hide': 'mobile' } });
@@ -1072,17 +1063,13 @@ export class DashboardView extends ItemView {
                         // Easier: always show if configured users > 0
                         const user = this.plugin.settings.users.find(u => u.id === userId);
                         if (user) {
-                            descTd.createEl('span', {
-                                text: user.name.charAt(0).toUpperCase(),
-                                cls: 'user-badge',
-                                attr: {
-                                    style: `background-color: ${user.color || '#888'}; color: #fff; padding: 2px 5px; border-radius: 4px; font-size: 0.8em; margin-right: 5px; vertical-align: middle;`,
-                                    title: user.name
-                                }
-                            });
+                            const badge = descTd.createSpan({ text: user.name.charAt(0).toUpperCase(), cls: 'aa-user-badge', attr: { title: user.name } });
+                            badge.style.setProperty('--aa-user', user.color || 'var(--rk-faint)');
                         }
                     }
-                    descTd.createEl('span', { text: tx.description });
+                    descTd.createSpan({ text: tx.description });
+                    const twins = twinCounts.get(`${tx.userId}|${tx.date}|${tx.description}|${tx.amount}|${tx.currency}`) || 0;
+                    if (twins > 1) descTd.createSpan({ cls: 'rk-chip is-good aa-twin', text: `同价 ×${twins}，分别保留` });
 
                     descTd.ondblclick = () => this.makeCellEditable(descTd, tx, 'description');
 
@@ -1103,7 +1090,11 @@ export class DashboardView extends ItemView {
                         }
                     }
 
-                    const amountTd = row.createEl('td', { text: `${this.formatAmount(displayAmt)} ${displayCur}` });
+                    const amountTd = row.createEl('td', { cls: 'aa-amount-cell rk-num' });
+                    amountTd.createSpan({ text: this.formatAmount(displayAmt) });
+                    amountTd.createSpan({ cls: 'rk-amt-unit', text: displayCur });
+                    const day = dayTotals.get(tx.date);
+                    if (day) day.total += displayAmt;
                     amountTd.ondblclick = () => {
                         if (this.displayCurrency !== tx.currency) {
                             new Notice('请切换回原始币种进行编辑金额');
@@ -1117,11 +1108,10 @@ export class DashboardView extends ItemView {
                     const actionsCell = row.createEl('td', { cls: 'action-cell hide-mobile', attr: { 'data-hide': 'mobile' } });
 
                     // AA Button
-                    const aaBtn = actionsCell.createEl('button', { cls: 'icon-btn', attr: { 'aria-label': 'AA 分账' } });
+                    const aaBtn = actionsCell.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': 'AA 分账' } });
                     setIcon(aaBtn, 'users');
                     if (tx.description.includes('(AA)')) {
                         aaBtn.disabled = true;
-                        aaBtn.style.opacity = '0.5';
                     }
 
                     aaBtn.onclick = () => {
@@ -1129,13 +1119,13 @@ export class DashboardView extends ItemView {
                         if (existing) { existing.remove(); return; }
 
                         const ownerId = tx.userId || 'default';
-                        const panel = actionsCell.createEl('div', { cls: 'inline-aa-panel info-panel', attr: { style: 'position: absolute; right: 60px; z-index: 100; min-width: 320px; background: var(--background-secondary); border: 1px solid var(--background-modifier-border); padding: 12px; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.3);' } });
-                        panel.createEl('h4', { text: `发起分账 (总金额: ${tx.amount})`, attr: { style: 'margin: 0 0 10px 0;' } });
+                        const panel = actionsCell.createDiv({ cls: 'rk-card aa-split-panel inline-aa-panel' });
+                        panel.createDiv({ cls: 'rk-label', text: `发起分账 · 总金额 ${tx.amount}` });
 
                         const userChecks: Record<string, HTMLInputElement> = {};
                         const userInputs: Record<string, HTMLInputElement> = {};
 
-                        const usersContainer = panel.createEl('div', { attr: { style: 'display: flex; flex-direction: column; gap: 8px; margin-bottom: 15px;' } });
+                        const usersContainer = panel.createDiv({ cls: 'aa-split-users' });
                         
                         const calcRemainder = () => {
                             let othersTotal = 0;
@@ -1171,20 +1161,19 @@ export class DashboardView extends ItemView {
 
                         this.plugin.settings.users.forEach(u => {
                             const isOwner = u.id === ownerId;
-                            const row = usersContainer.createEl('div', { attr: { style: 'display: flex; align-items: center; justify-content: space-between; gap: 10px;' } });
-                            
-                            const label = row.createEl('label', { attr: { style: 'display: flex; align-items: center; gap: 4px; cursor: pointer; flex: 1;' } });
+                            const row = usersContainer.createDiv({ cls: 'aa-split-row' });
+
+                            const label = row.createEl('label', { cls: 'aa-split-user rk-grow' });
                             const chk = label.createEl('input', { type: 'checkbox' });
                             chk.checked = true; // default all checked
                             label.createEl('span', { text: u.name + (isOwner ? ' (付款方)' : '') });
                             userChecks[u.id] = chk;
 
-                            const input = row.createEl('input', { type: 'number', attr: { style: 'width: 80px;', step: '0.01', min: '0' } });
+                            const input = row.createEl('input', { type: 'number', cls: 'aa-split-amount', attr: { step: '0.01', min: '0' } });
                             userInputs[u.id] = input;
 
                             if (isOwner) {
                                 input.readOnly = true;
-                                input.style.opacity = '0.7';
                             } else {
                                 input.oninput = () => calcRemainder();
                             }
@@ -1200,8 +1189,8 @@ export class DashboardView extends ItemView {
 
                         recalculateEqual();
 
-                        const actionContainer = panel.createEl('div', { attr: { style: 'display: flex; justify-content: flex-end; gap: 8px;' } });
-                        
+                        const actionContainer = panel.createDiv({ cls: 'rk-actions aa-split-actions' });
+
                         const equalBtn = actionContainer.createEl('button', { text: '重置平分' });
                         equalBtn.onclick = () => recalculateEqual();
 
@@ -1245,7 +1234,7 @@ export class DashboardView extends ItemView {
                     };
 
                     // Edit Button
-                    const editBtn = actionsCell.createEl('button', { cls: 'icon-btn', attr: { 'aria-label': '编辑' } });
+                    const editBtn = actionsCell.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': '编辑' } });
                     setIcon(editBtn, 'pencil');
                     editBtn.onclick = () => {
                         new EditTransactionModal(this.app, tx, this.plugin, () => {
@@ -1254,7 +1243,7 @@ export class DashboardView extends ItemView {
                     };
 
                     // Open note link
-                    const openBtn = actionsCell.createEl('button', { cls: 'icon-btn', attr: { 'aria-label': '在新标签页打开源文件' } });
+                    const openBtn = actionsCell.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': '在新标签页打开源文件' } });
                     setIcon(openBtn, 'external-link');
                     openBtn.onclick = async () => {
                         const file = this.plugin.dataService.getLocationFile(tx);
@@ -1266,8 +1255,10 @@ export class DashboardView extends ItemView {
                     };
                 }
 
+                for (const day of dayTotals.values()) day.el.setText(`${this.formatAmount(day.total)} ${this.displayCurrency}`);
+
                 // --- Inline Quick Add Row ---
-                const addRow = detailTbody.createEl('tr', { cls: 'quick-add-row' });
+                const addRow = detailTbody.createEl('tr', { cls: 'aa-add-row quick-add-row' });
                 addRow.createEl('td', { cls: 'checkbox-col hide-mobile', attr: { 'data-hide': 'mobile' } });
 
                 // Show date input in Quick Add row for non-day scopes
@@ -1298,7 +1289,7 @@ export class DashboardView extends ItemView {
                 const payInput = payTd.createEl('input', { type: 'text', attr: { placeholder: '支付方式' } });
 
                 const actionsCell = addRow.createEl('td', { cls: 'action-cell hide-mobile', attr: { 'data-hide': 'mobile' } });
-                const saveBtn = actionsCell.createEl('button', { cls: 'icon-btn', attr: { 'aria-label': '快速添加' } });
+                const saveBtn = actionsCell.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': '快速添加' } });
                 setIcon(saveBtn, 'plus-circle');
 
                 const handleAdd = async () => {
@@ -1328,7 +1319,7 @@ export class DashboardView extends ItemView {
                         paymentMethod: payment
                     }]);
 
-                    new Notice('✅ 账目已添加');
+                    new Notice('账目已添加');
                     await this.refresh();
                 };
 
@@ -1337,10 +1328,10 @@ export class DashboardView extends ItemView {
                     input.onkeydown = (e) => { if (e.key === 'Enter') void handleAdd(); };
                 });
             } else {
-                detailsCard.createEl('p', { text: '暂无交易记录' });
+                detailsCard.createDiv({ cls: 'rk-cap', text: '暂无交易记录' });
             }
         } else {
-            chartCard.createEl('p', { text: '点击左侧记录查看详情' });
+            chartCard.createDiv({ cls: 'rk-cap', text: '点上面的周期查看明细' });
         }
     }
 
@@ -1384,10 +1375,10 @@ export class DashboardView extends ItemView {
         })).then(() => {
             labels.push(...Object.keys(dict));
             values.push(...Object.values(dict));
-            const textColor = this.getObsidianColor('--text-normal');
+            const textColor = this.getObsidianColor('--rk-muted');
             new Chart(canvas, {
                 type: 'pie',
-                data: { labels, datasets: [{ data: values, backgroundColor: ['#ff6384', '#36a2eb', '#ffce56', '#4bc0c0', '#9966ff', '#ff9f40'], borderColor: this.getObsidianColor('--background-secondary'), borderWidth: 2 }] },
+                data: { labels, datasets: [{ data: values, backgroundColor: this.seriesColors(), borderColor: this.getObsidianColor('--rk-card'), borderWidth: 2 }] },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
@@ -1439,8 +1430,30 @@ export class DashboardView extends ItemView {
         });
     }
 
+    /** Reads a colour token from the dashboard, so charts follow the theme and the paper style. */
     private getObsidianColor(variable: string): string {
-        return getComputedStyle(document.body || document.documentElement).getPropertyValue(variable).trim();
+        const scope = this.contentEl.querySelector('.ai-accounting-dashboard-container') || document.body;
+        return getComputedStyle(scope).getPropertyValue(variable).trim();
+    }
+
+    private seriesColors(): string[] {
+        return [1, 2, 3, 4, 5, 6].map(i => this.getObsidianColor(`--rk-series-${i}`)).filter(Boolean);
+    }
+
+    /** Any CSS colour with a given opacity, resolved by the browser. */
+    private withAlpha(color: string, alpha: number): string {
+        const probe = document.body.createDiv();
+        probe.style.color = color;
+        const rgb = getComputedStyle(probe).color;
+        probe.remove();
+        const parts = rgb.match(/[\d.]+/g);
+        return parts && parts.length >= 3 ? `rgba(${parts[0]}, ${parts[1]}, ${parts[2]}, ${alpha})` : color;
+    }
+
+    private formatDayLabel(date: string): string {
+        const [y, m, d] = date.split('-').map(part => parseInt(part, 10));
+        const weekday = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][new Date(y || 1970, (m || 1) - 1, d || 1).getDay()];
+        return `${m} 月 ${d} 日 ${weekday}`;
     }
 
     // 金额格式化
@@ -1461,7 +1474,7 @@ export class DashboardView extends ItemView {
             data = Object.values(stats.categories);
         }
 
-        const textColor = this.getObsidianColor('--text-normal');
+        const textColor = this.getObsidianColor('--rk-muted');
 
         new Chart(canvas, {
             type: 'doughnut',
@@ -1469,10 +1482,8 @@ export class DashboardView extends ItemView {
                 labels: labels,
                 datasets: [{
                     data: data,
-                    backgroundColor: [
-                        '#ff6384', '#36a2eb', '#ffce56', '#4bc0c0', '#9966ff', '#ff9f40', '#c9cbcf', '#00aba9'
-                    ],
-                    borderColor: this.getObsidianColor('--background-secondary'),
+                    backgroundColor: this.seriesColors(),
+                    borderColor: this.getObsidianColor('--rk-card'),
                     borderWidth: 2
                 }]
             },
@@ -1530,7 +1541,7 @@ export class DashboardView extends ItemView {
         const labels = Object.keys(stats.paymentMethods);
         const data = Object.values(stats.paymentMethods);
 
-        const textColor = this.getObsidianColor('--text-normal');
+        const textColor = this.getObsidianColor('--rk-muted');
 
         new Chart(canvas, {
             type: 'pie',
@@ -1538,10 +1549,8 @@ export class DashboardView extends ItemView {
                 labels: labels,
                 datasets: [{
                     data: data,
-                    backgroundColor: [
-                        '#4bc0c0', '#ff6384', '#36a2eb', '#ffce56', '#9966ff', '#ff9f40', '#c9cbcf', '#00aba9'
-                    ],
-                    borderColor: this.getObsidianColor('--background-secondary'),
+                    backgroundColor: this.seriesColors(),
+                    borderColor: this.getObsidianColor('--rk-card'),
                     borderWidth: 2
                 }]
             },
@@ -1592,11 +1601,10 @@ export class DashboardView extends ItemView {
         const colors = labels.map(name => {
             const user = this.plugin.settings.users.find(u => u.name === name);
             if (user) return user.color;
-            // Fallback colors
-            return '#cccccc';
+            return this.getObsidianColor('--rk-series-6');
         });
 
-        const textColor = this.getObsidianColor('--text-normal');
+        const textColor = this.getObsidianColor('--rk-muted');
 
         new Chart(canvas, {
             type: 'pie',
@@ -1605,7 +1613,7 @@ export class DashboardView extends ItemView {
                 datasets: [{
                     data: data,
                     backgroundColor: colors,
-                    borderColor: this.getObsidianColor('--background-secondary'),
+                    borderColor: this.getObsidianColor('--rk-card'),
                     borderWidth: 2
                 }]
             },
@@ -1666,9 +1674,11 @@ export class DashboardView extends ItemView {
         const labels = Object.keys(monthlyTotals).sort();
         const data = labels.map(label => monthlyTotals[label]);
 
-        const textColor = this.getObsidianColor('--text-normal');
-        const gridColor = this.getObsidianColor('--background-modifier-border');
-        const accentColor = this.getObsidianColor('--text-accent');
+        const textColor = this.getObsidianColor('--rk-muted');
+        const gridColor = this.getObsidianColor('--rk-hair');
+        const accentColor = this.getObsidianColor('--rk-accent');
+        const restColor = this.getObsidianColor('--rk-series-6');
+        const current = `${this.currentDate.getFullYear()}-${String(this.currentDate.getMonth() + 1).padStart(2, '0')}`;
 
         new Chart(canvas, {
             type: 'bar',
@@ -1677,13 +1687,16 @@ export class DashboardView extends ItemView {
                 datasets: [{
                     label: `支出金额 (${this.displayCurrency})`,
                     data: data,
-                    backgroundColor: accentColor + '99',
-                    borderColor: accentColor,
-                    borderWidth: 1
+                    // Only the month being viewed is highlighted.
+                    backgroundColor: labels.map(label => label === current ? accentColor : this.withAlpha(restColor, 0.55)),
+                    borderColor: labels.map(label => label === current ? accentColor : restColor),
+                    borderWidth: 1,
+                    borderRadius: 3
                 }]
             },
             options: {
                 responsive: true,
+                maintainAspectRatio: false,
                 scales: {
                     y: {
                         beginAtZero: true,
@@ -1696,7 +1709,7 @@ export class DashboardView extends ItemView {
                     }
                 },
                 plugins: {
-                    legend: { labels: { color: textColor } }
+                    legend: { display: false }
                 }
             }
         });

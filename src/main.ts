@@ -262,7 +262,9 @@ export default class AccountingPlugin extends Plugin {
 			const extracted = await this.aiService.processInput(content, isImage);
             if (!extracted.length) { processingNotice.hide(); return; }
             processingNotice.hide();
-            const dataArray = await new ReviewImportModal(this.app, extracted, userName, file.name).review();
+            const dataArray = await new ReviewImportModal(this.app, extracted, userName, file.name,
+                isImage ? { imageSrc: this.app.vault.getResourcePath(file) } : { text: content.slice(0, 1200) },
+                !!this.settings.paperStyle).review();
             if (!dataArray) return;
             const sourceHash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(content))), byte => byte.toString(16).padStart(2, '0')).join('');
 			if (dataArray && dataArray.length > 0) {
@@ -329,8 +331,8 @@ export default class AccountingPlugin extends Plugin {
         }
 	}
 
-	/** Open dashboards cache the ledger; reload them after writing new rows. */
-	private refreshDashboards() {
+	/** Open dashboards cache the ledger; reload them after writing new rows or switching the style. */
+	refreshDashboards() {
 		for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_DASHBOARD)) {
 			if (leaf.view instanceof DashboardView) void leaf.view.refresh();
 		}

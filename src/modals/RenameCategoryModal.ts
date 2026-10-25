@@ -13,7 +13,9 @@ export class RenameCategoryModal extends Modal {
         const { contentEl } = this;
         contentEl.empty();
 
-        contentEl.createEl('h2', { text: `重命名分类: ${this.oldCategoryName}` });
+        this.modalEl.addClass('aa-modal');
+        this.modalEl.toggleClass('rk-paper', !!this.plugin.settings.paperStyle);
+        this.setTitle(`重命名分类：${this.oldCategoryName}`);
 
         new Setting(contentEl)
             .setName('新分类名称')
