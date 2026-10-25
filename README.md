@@ -46,6 +46,12 @@ Most expense apps keep your data in their own database, and the ones that read r
 - Google Gemini, or any OpenAI-compatible service (OpenAI, a local Ollama, other providers).
 - **Several endpoints with fallback.** If the first service fails, the next enabled one is tried.
 
+### 纸墨风格 (Paper & ink style, optional)
+
+Turn it on in settings for a paper-and-ink look. Off by default, so the dashboard follows your theme. Below: the review window, with the receipt next to the draft rows.
+
+<img src="docs/screenshots/paper-review.jpg" width="860">
+
 ## Install
 
 1. Download `obsidian-ai-accounting-0.3.0.zip` from the latest release.
