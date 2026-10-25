@@ -307,6 +307,7 @@ export default class AccountingPlugin extends Plugin {
 
 				processingNotice.hide(); // Success: hide processing notice
 				new Notice(`成功处理 [${userName}] 的 ${dataArray.length} 笔交易。`);
+				this.refreshDashboards();
 
 				if (shouldArchive) {
 					await this.archiveFile(file);
@@ -326,6 +327,13 @@ export default class AccountingPlugin extends Plugin {
             this.processingFiles.delete(processingPath);
             processingNotice.hide();
         }
+	}
+
+	/** Open dashboards cache the ledger; reload them after writing new rows. */
+	private refreshDashboards() {
+		for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_DASHBOARD)) {
+			if (leaf.view instanceof DashboardView) void leaf.view.refresh();
+		}
 	}
 
 	private getCurrentYearMonth(): string {

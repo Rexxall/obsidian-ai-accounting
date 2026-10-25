@@ -76,6 +76,8 @@ export class DashboardView extends ItemView {
     async onOpen() {
         await this.refreshData();
         await this.render();
+        // Charts read theme colours when drawn; redraw when the theme changes.
+        this.registerEvent(this.app.workspace.on('css-change', () => void this.render()));
         // 绑定快捷键
         this.registerDomEvent(this.containerEl, 'keydown', (e: KeyboardEvent) => {
             const target = e.target as HTMLElement;
