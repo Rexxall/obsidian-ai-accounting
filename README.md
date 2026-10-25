@@ -85,6 +85,8 @@ npm test        # ledger and request tests
 npm run lint
 ```
 
+`styles.css` is generated. Edit `styles/plugin.css` (or the shared `styles/kit.css`, the same in all of my plugins) and run `npm run styles`.
+
 ## Known limits
 
 - This is an expense ledger. Income, transfers and account balances are not modelled.
@@ -94,6 +96,15 @@ npm run lint
 - The interface is in Chinese.
 
 ## Changelog
+
+**0.4.0**
+
+- The ledger reads like a ledger: grouped by day with a total for each day, totals and "where it went" beside it, and the period analysis folded away.
+- Two identical purchases on the same day are marked as kept apart on purpose.
+- The review window shows the receipt or note next to the draft, marks empty or unreadable cells, and adds up the total.
+- Charts take their colours from the theme; the trend highlights the month you are viewing.
+- Optional **纸墨风格 (Paper & ink style)** in settings. Off by default, so the dashboard follows your theme.
+- Styles rewritten from scratch on a small shared style kit; the dashboard and dialogs no longer use inline styles.
 
 **0.3.0**
 

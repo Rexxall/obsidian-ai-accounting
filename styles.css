@@ -667,3 +667,6 @@
 
 /* Grouped by day: the day header already shows the date */
 .ai-accounting-dashboard-container .aa-table.is-grouped .date-col { display: none; }
+
+/* Edit dialog: delete on the left, save on the right */
+.aa-modal .aa-edit-buttons { display: flex; justify-content: space-between; margin-top: 20px; }

@@ -50,7 +50,7 @@ export class EditTransactionModal extends Modal {
             .setName('支付方式')
             .addText(text => text.setValue(paymentMethod).onChange(v => paymentMethod = v));
 
-        const btnDiv = contentEl.createDiv({ cls: 'modal-button-container', attr: { style: 'display: flex; justify-content: space-between; margin-top: 20px;' } });
+        const btnDiv = contentEl.createDiv({ cls: 'modal-button-container aa-edit-buttons' });
 
         const deleteBtn = btnDiv.createEl('button', { text: '删除', cls: 'mod-warning' });
         let armed = false;
