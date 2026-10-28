@@ -307,7 +307,6 @@
   .ap, .theme-dark .ap, .ap.is-dark { --ap-glass: var(--ap-glass-solid); --ap-glass-thin: var(--ap-glass-solid); }
 }
 /* Reduce transparency: solid surfaces, a firmer edge */
-/* .theme-dark .ap is listed because it sets a translucent dark glass with higher specificity */
 @media (prefers-reduced-transparency: reduce) {
   .ap, .is-translucent .ap, .theme-dark .ap, .ap.is-dark { --ap-glass: var(--ap-glass-solid); --ap-glass-thin: var(--ap-glass-solid); --ap-blur: none; --ap-blur-thin: none; --ap-glint: transparent; --ap-group: color-mix(in srgb, var(--text-normal) 4%, var(--background-primary)); }
 }
@@ -420,6 +419,48 @@
 .modal.ap-modal .modal-content .setting-item { border-top: 0; }
 .modal.ap-modal .modal-close-button { border-radius: var(--ap-r-pill); }
 
+/* ---------- Pieces the kit (74) is adding: row actions, pill picker, popover, disclosure row.
+   Written with the kit's tokens; align with the appendix once it has them. ---------- */
+
+/* Row actions: hidden until the row is hovered or has focus; always shown on touch screens */
+.ap .ap-row-actions { display: flex; align-items: center; gap: 2px; flex: none; opacity: 0; transition: opacity var(--ap-fast) var(--ap-ease); }
+.ap :is(:hover, :focus-within) > .ap-row-actions, .ap .ap-row-actions.is-pinned { opacity: 1; }
+.is-mobile .ap .ap-row-actions { opacity: 1; }
+@media (hover: none) { .ap .ap-row-actions { opacity: 1; } }
+
+/* Pill picker: a capsule that opens a menu or popover; tinted while it narrows what is shown */
+.ap button.ap-pill-select {
+  display: inline-flex; align-items: center; gap: 4px; height: auto; padding: 5px 10px 5px 12px;
+  border-radius: var(--ap-r-pill); background: var(--ap-fill); color: var(--ap-label); font: 500 13px/18px var(--ap-font);
+  font-variant-numeric: tabular-nums; box-shadow: none; white-space: nowrap;
+}
+.ap button.ap-pill-select:hover { background: var(--ap-fill-strong); }
+.ap button.ap-pill-select.is-active { background: var(--ap-accent-tint); color: var(--ap-accent); }
+.ap button.ap-pill-select svg { width: 14px; height: 14px; color: var(--ap-label-3); }
+.ap button.ap-pill-select.is-active svg { color: inherit; }
+.ap .ap-pill-count { min-width: 16px; padding: 0 5px; border-radius: var(--ap-r-pill); background: var(--ap-accent); color: var(--ap-on-accent); font: 600 11px/16px var(--ap-font); text-align: center; }
+
+/* Popover: a small glass sheet anchored under a pill */
+.ap-popover.ap {
+  position: fixed; z-index: var(--layer-menu, 65); min-width: 220px; padding: var(--ap-s3); border-radius: var(--ap-r-group);
+  background: var(--ap-glass); -webkit-backdrop-filter: var(--ap-blur); backdrop-filter: var(--ap-blur);
+  box-shadow: var(--ap-glass-edge), var(--ap-shadow-2); animation: ap-sheet-in var(--ap-fast) var(--ap-ease);
+}
+.ap .ap-popover-head { display: flex; align-items: center; justify-content: space-between; gap: var(--ap-s2); margin-bottom: var(--ap-s2); font: var(--ap-headline); font-variant-numeric: tabular-nums; }
+.ap .ap-month-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.ap .ap-month-grid button { padding: 6px 0; justify-content: center; background: transparent; }
+.ap .ap-month-grid button:hover { background: var(--ap-fill); }
+.ap .ap-month-grid button.is-selected { background: var(--ap-accent); color: var(--ap-on-accent); }
+.ap .ap-month-grid button.is-today:not(.is-selected) { color: var(--ap-accent); font-weight: 600; }
+
+/* Disclosure row: one line that opens to show more */
+.ap .ap-disclosure-head { display: flex; align-items: center; gap: var(--ap-s3); cursor: pointer; }
+.ap .ap-disclosure-chevron { display: inline-flex; flex: none; color: var(--ap-label-3); transition: transform var(--ap-fast) var(--ap-ease); }
+.ap .ap-disclosure-chevron svg { width: 14px; height: 14px; }
+.ap .ap-disclosure.is-open .ap-disclosure-chevron { transform: rotate(90deg); }
+.ap .ap-disclosure-body { display: none; }
+.ap .ap-disclosure.is-open > .ap-disclosure-body { display: block; }
+
 /* ==========================================================================
    AI Accounting
    ========================================================================== */
@@ -443,21 +484,44 @@
 /* Header and toolbar */
 .ai-accounting-dashboard-container .aa-head.ap-bar-glass { margin: -22px -26px 14px; padding: 18px 26px 12px; }
 
-.ai-accounting-dashboard-container .aa-toolbar,
-.ai-accounting-dashboard-container .aa-filters {
+.ai-accounting-dashboard-container .aa-toolbar {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: 10px 14px;
-	margin-bottom: 12px;
+	gap: 10px;
+	margin-bottom: 14px;
 }
 
-.ai-accounting-dashboard-container .aa-period { display: flex; align-items: center; gap: 4px; }
-.ai-accounting-dashboard-container .aa-nav-btn { min-width: 28px; padding: 0 8px; }
-.ai-accounting-dashboard-container .aa-period-input { width: auto; }
-.ai-accounting-dashboard-container .aa-period-input.is-year { width: 90px; }
-.ai-accounting-dashboard-container .aa-selects { display: flex; gap: 8px; margin-left: auto; }
-.ai-accounting-dashboard-container .aa-search { flex: 1 1 220px; max-width: 360px; }
+/* Period: one capsule with steps on either side */
+.ai-accounting-dashboard-container .aa-period { display: inline-flex; align-items: center; gap: 0; padding: 2px; border-radius: var(--ap-r-pill); background: var(--ap-fill); }
+.ai-accounting-dashboard-container .aa-period .clickable-icon { padding: 4px; color: var(--ap-label-2); }
+.ai-accounting-dashboard-container .aa-period button.aa-period-pill { background: transparent; padding-inline: 8px 6px; font-weight: 600; }
+.ai-accounting-dashboard-container .aa-period button.aa-period-pill:hover { background: var(--ap-fill-strong); }
+.ai-accounting-dashboard-container .aa-search { max-width: 300px; margin-left: auto; padding-block: 5px; }
+.ai-accounting-dashboard-container .aa-search svg { width: 14px; height: 14px; }
+.ai-accounting-dashboard-container .aa-search input { box-shadow: none; background: none; padding: 0; height: auto; }
+.ai-accounting-dashboard-container .aa-search input:focus { box-shadow: none; }
+
+/* Popovers: period picker and filters */
+.aa-period-pop .aa-day-grid { grid-template-columns: repeat(7, 1fr); }
+.aa-period-pop .aa-day-grid .ap-cap { text-align: center; margin: 0 0 2px; }
+.aa-filter-pop { width: 300px; display: grid; gap: var(--ap-s3); }
+.aa-filter-pop .aa-filter-scope { display: grid; grid-template-columns: repeat(3, 1fr); }
+.aa-filter-pop .aa-filter-section { display: grid; gap: 6px; }
+.aa-filter-pop .aa-filter-section > .ap-cap { margin: 0; }
+.aa-filter-pop .aa-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.aa-filter-pop button.aa-chip { padding: 3px 10px; font: 500 12px/16px var(--ap-font); background: var(--ap-fill); }
+.aa-filter-pop button.aa-chip.is-selected { background: var(--ap-accent); color: var(--ap-on-accent); }
+.aa-filter-pop .aa-filter-foot { display: flex; justify-content: flex-end; }
+.aa-filter-pop .aa-filter-foot button { background: none; color: var(--ap-accent); padding-inline: 4px; }
+
+/* Row actions appear on hover or focus; always on touch screens */
+.ai-accounting-dashboard-container .aa-tx-row .action-cell > button { opacity: 0; transition: opacity var(--ap-fast) var(--ap-ease); }
+.ai-accounting-dashboard-container .aa-tx-row:is(:hover, :focus-within) .action-cell > button { opacity: 1; }
+.ai-accounting-dashboard-container .aa-tx-row .action-cell > button:disabled { opacity: 0; }
+.ai-accounting-dashboard-container .aa-tx-row:is(:hover, :focus-within) .action-cell > button:disabled { opacity: 0.3; }
+.is-mobile .ai-accounting-dashboard-container .aa-tx-row .action-cell > button { opacity: 1; }
+@media (hover: none) { .ai-accounting-dashboard-container .aa-tx-row .action-cell > button { opacity: 1; } }
 
 /* Quick entry */
 .ai-accounting-dashboard-container .quick-form-wrapper.is-hidden { display: none; }
@@ -626,7 +690,7 @@
 .ai-accounting-dashboard-container .aa-empty-state .ap-sub { margin: 8px 0 16px; }
 
 /* Review modal */
-.aa-modal.aa-review-modal { width: min(980px, 94vw); }
+.aa-modal.aa-review-modal { width: min(820px, 94vw); }
 .aa-review-modal .aa-review-body { display: flex; align-items: flex-start; gap: 20px; }
 
 .aa-review-modal .aa-review-source {
@@ -640,16 +704,25 @@
 }
 .aa-review-modal .aa-review-source img { display: block; width: 100%; }
 .aa-review-modal .aa-review-source pre { margin: 0; padding: 10px; font-size: var(--font-ui-smaller); white-space: pre-wrap; }
-.aa-review-modal .aa-review-main { flex: 1; min-width: 0; overflow-x: auto; }
+.aa-review-modal .aa-review-main { flex: 1; min-width: 0; }
 
-.aa-review-modal .aa-table { width: 100%; border-collapse: collapse; font-size: var(--font-ui-small); }
-.aa-review-modal .aa-table th { padding: 4px 6px; border-bottom: 1px solid var(--ap-sep); color: var(--ap-label-3); font-size: var(--font-ui-smaller); font-weight: 500; text-align: left; }
-.aa-review-modal .aa-table .is-right { text-align: right; }
-.aa-review-modal .aa-table td { padding: 4px 4px; border-bottom: 0.5px solid var(--ap-sep); }
+/* One line per transaction; the full text wraps instead of being cut */
+.aa-review-modal .aa-review-list { overflow: hidden; }
+.aa-review-modal .aa-review-item + .aa-review-item { box-shadow: inset 0 0.5px 0 var(--ap-sep); }
+.aa-review-modal .aa-review-line { padding: 10px 14px 10px 10px; }
+.aa-review-modal .aa-review-line:hover { background: var(--ap-fill); }
+.aa-review-modal .aa-review-line:focus-visible { outline: 2px solid var(--ap-accent); outline-offset: -2px; }
+.aa-review-modal .aa-review-title { font: var(--ap-body); font-weight: 500; overflow-wrap: anywhere; }
+.aa-review-modal .aa-review-title.is-empty { color: var(--ap-label-3); }
+.aa-review-modal .aa-review-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 3px; font: var(--ap-subhead); color: var(--ap-label-2); }
+.aa-review-modal .aa-review-amount { align-self: center; }
+.aa-review-modal .aa-review-editor { padding: 2px 14px 14px 34px; }
+.aa-review-modal .ap-disclosure.is-open > .aa-review-editor { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; }
+.aa-review-modal .aa-review-field { display: grid; gap: 3px; min-width: 0; }
+.aa-review-modal .aa-review-field.is-description { grid-column: 1 / -1; }
 .aa-review-modal .aa-cell-input { width: 100%; min-width: 0; }
 .aa-review-modal .aa-cell-input.is-amount { text-align: right; font-variant-numeric: tabular-nums; }
-.aa-review-modal .aa-cell-input.is-currency { width: 64px; }
-.aa-modal.aa-review-modal input.aa-cell-input.is-flagged { border-color: var(--ap-warn); background: var(--ap-warn-soft); }
+.aa-modal.aa-review-modal input.aa-cell-input.is-flagged { box-shadow: 0 0 0 1px var(--ap-warn); background-color: var(--ap-warn-soft); }
 .aa-review-modal .aa-review-summary { margin: 10px 0 8px; font-size: var(--font-ui-small); }
 .aa-review-modal .aa-review-summary span:first-child { color: var(--ap-label); font-weight: 600; }
 

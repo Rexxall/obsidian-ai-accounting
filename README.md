@@ -126,6 +126,9 @@ npm run lint
 - Settings rebuilt with Obsidian's own section headings, toggles and buttons; no inline styles.
 - Fixed: adding an entry from a day's detail in the charts view failed because the exchange rate was saved under the wrong field.
 - Model replies are typed and checked; `npm run lint` passes with no errors.
+- A quieter ledger header: Ledger and Charts, one month capsule that opens a month picker, a search field, and a single Filter button for day, month or year, currency, member, category and payment method.
+- Row actions appear when you point at a row (always shown on touch screens); the member initial shows only in a ledger with more than one member.
+- The review dialog lists one line per transaction with the full text; click a line to edit it. Lines with something missing open by themselves.
 
 **0.4.0**
 

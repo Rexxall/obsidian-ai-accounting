@@ -1,4 +1,4 @@
-import { App, Modal, Notice } from 'obsidian';
+import { App, Modal, Notice, setIcon } from 'obsidian';
 import { TransactionData } from '../services/AIService';
 import { validateTransaction } from '../services/ledger';
 
@@ -42,15 +42,14 @@ export class ReviewImportModal extends Modal {
             else sourceEl.createEl('pre', { text: this.preview.text });
         }
 
+        // One line per transaction with the full text; click a line to edit it.
+        // Lines with something missing open by themselves.
         const right = body.createDiv({ cls: 'aa-review-main' });
-        const table = right.createEl('table', { cls: 'aa-table aa-review-table' });
-        const header = table.createEl('thead').createEl('tr');
-        FIELDS.forEach(field => header.createEl('th', { text: field.label, cls: field.key === 'amount' ? 'is-right' : '' }));
-        const body2 = table.createEl('tbody');
+        const list = right.createDiv({ cls: 'ap-group aa-review-list' });
         const summary = right.createDiv({ cls: 'ap-split aa-review-summary' });
         const notes = right.createDiv({ cls: 'ap-notice is-warn aa-review-notes' });
+        const lines: { row: TransactionData, item: HTMLElement, draw: () => void, inputs: HTMLInputElement[] }[] = [];
 
-        // Cells the AI left empty or unreadable are marked, so it is clear what to check.
         const refresh = () => {
             const totals = new Map<string, number>();
             const problems: string[] = [];
@@ -60,12 +59,11 @@ export class ReviewImportModal extends Modal {
                 const missing = FIELDS.filter(field => this.isMissing(row, field.key)).map(field => field.label);
                 if (missing.length) problems.push(`第 ${index + 1} 笔：${missing.join('、')}`);
             });
-            body2.querySelectorAll('tr').forEach((tr, index) => {
-                const row = this.draft[index];
-                if (!row) return;
-                tr.querySelectorAll('input').forEach((input, i) => {
+            lines.forEach(line => {
+                line.draw();
+                line.inputs.forEach((input, i) => {
                     const field = FIELDS[i];
-                    if (field) input.toggleClass('is-flagged', this.isMissing(row, field.key));
+                    if (field) input.toggleClass('is-flagged', this.isMissing(line.row, field.key));
                 });
             });
             summary.empty();
@@ -81,9 +79,23 @@ export class ReviewImportModal extends Modal {
         };
 
         for (const row of this.draft) {
-            const tr = body2.createEl('tr');
-            FIELDS.forEach(({ key, label }) => {
-                const input = tr.createEl('td', { cls: key === 'amount' ? 'is-right' : '' }).createEl('input', {
+            const item = list.createDiv({ cls: 'ap-disclosure aa-review-item' });
+            const head = item.createDiv({ cls: 'ap-disclosure-head aa-review-line', attr: { role: 'button', tabindex: '0' } });
+            const chevron = head.createSpan({ cls: 'ap-disclosure-chevron' });
+            setIcon(chevron, 'chevron-right');
+            const main = head.createDiv({ cls: 'ap-grow' });
+            const title = main.createDiv({ cls: 'aa-review-title' });
+            const meta = main.createDiv({ cls: 'aa-review-meta' });
+            const amount = head.createDiv({ cls: 'ap-amt aa-review-amount' });
+            const toggle = () => { item.toggleClass('is-open', !item.hasClass('is-open')); };
+            head.onclick = toggle;
+            head.onkeydown = (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggle(); } };
+
+            const editor = item.createDiv({ cls: 'ap-disclosure-body aa-review-editor' });
+            const inputs = FIELDS.map(({ key, label }) => {
+                const field = editor.createEl('label', { cls: `aa-review-field is-${key}` });
+                field.createSpan({ cls: 'ap-cap', text: label });
+                const input = field.createEl('input', {
                     type: key === 'date' ? 'date' : key === 'amount' ? 'number' : 'text',
                     cls: `aa-cell-input is-${key}`
                 });
@@ -95,7 +107,24 @@ export class ReviewImportModal extends Modal {
                     else row[key] = key === 'currency' ? input.value.trim().toUpperCase() : input.value;
                     refresh();
                 });
+                return input;
             });
+
+            const draw = () => {
+                const missing = FIELDS.filter(field => this.isMissing(row, field.key));
+                title.setText(row.description || '（没有内容）');
+                title.toggleClass('is-empty', !row.description);
+                meta.empty();
+                if (row.category) meta.createSpan({ cls: 'ap-pill', text: row.category });
+                meta.createSpan({ cls: 'ap-num', text: [row.date, row.paymentMethod].filter(Boolean).join(' · ') });
+                if (missing.length) meta.createSpan({ cls: 'ap-pill is-warn', text: `需补：${missing.map(field => field.label).join('、')}` });
+                amount.empty();
+                const value = Number(row.amount);
+                amount.appendText(Number.isFinite(value) ? value.toLocaleString(undefined, { maximumFractionDigits: 2 }) : '—');
+                amount.createSpan({ cls: 'ap-amt-unit', text: row.currency || '' });
+            };
+            if (FIELDS.some(field => this.isMissing(row, field.key))) item.addClass('is-open');
+            lines.push({ row, item, draw, inputs });
         }
         refresh();
 

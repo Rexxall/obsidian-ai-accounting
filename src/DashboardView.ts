@@ -5,8 +5,10 @@ import AccountingPlugin from './main';
 import { RenameCategoryModal } from './modals/RenameCategoryModal';
 import { EditTransactionModal } from './modals/EditTransactionModal';
 import { budgetUsage, parseBudgets } from './services/planning';
+import { openPopover } from './popover';
 
 Chart.register(...registerables);
+
 
 export const VIEW_TYPE_DASHBOARD = 'ai-accounting-dashboard';
 
@@ -92,7 +94,7 @@ export class DashboardView extends ItemView {
                     if (el) { el.focus(); e.preventDefault(); }
                 } else if (e.key.toLowerCase() === 'f') {
                     const el = this.containerEl.querySelector('#aa-filters') as HTMLElement;
-                    if (el) { el.scrollIntoView({ behavior: 'smooth' }); }
+                    if (el) { el.click(); e.preventDefault(); }
                 } else if (e.key === 'Escape') {
                     this.clearAllFilters();
                     void this.render();
@@ -304,116 +306,37 @@ export class DashboardView extends ItemView {
             btn.onclick = () => { this.currentTab = key; void this.render(); };
         });
 
-        const scopeGroup = toolbar.createDiv({ cls: 'ap-seg' });
-        const scopes: Array<{ key: ChartScope, label: string }> = [
-            { key: 'day', label: '当日' },
-            { key: 'month', label: '月度' },
-            { key: 'year', label: '年度' },
-        ];
-        scopes.forEach(s => {
-            const btn = scopeGroup.createEl('button', { text: s.label, cls: this.chartScope === s.key ? 'is-active' : '' });
-            btn.onclick = () => {
-                this.chartScope = s.key;
-                this.selectedPrimaryCategory = null;
-                this.selectedDailyCategory = null;
-                void this.render();
-            };
-        });
-
-        const navSection = toolbar.createDiv({ cls: 'aa-period' });
-        const prevBtn = navSection.createEl('button', { text: '‹', cls: 'aa-nav-btn', attr: { 'aria-label': '上一段' } });
+        // One capsule for the period: step back or forward, or click the label to pick.
+        const period = toolbar.createDiv({ cls: 'aa-period' });
+        const prevBtn = period.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': '上一段' } });
+        setIcon(prevBtn, 'chevron-left');
         prevBtn.onclick = async () => { this.adjustDate(-1); await this.render(); };
-        if (this.chartScope === 'day') {
-            const dateInput = navSection.createEl('input', { type: 'date', cls: 'aa-period-input' });
-            dateInput.value = ctx.yyyy_mm_dd;
-            dateInput.onchange = () => { if (dateInput.value) { this.currentDate = new Date(dateInput.value); void this.render(); } };
-        } else if (this.chartScope === 'month') {
-            const monthInput = navSection.createEl('input', { type: 'month', cls: 'aa-period-input' });
-            monthInput.value = ctx.yyyy_mm;
-            monthInput.onchange = () => {
-                if (monthInput.value) {
-                    const parts = monthInput.value.split('-');
-                    if (parts.length >= 2) this.currentDate = new Date(parseInt(parts[0] || '1970'), parseInt(parts[1] || '1') - 1, 1);
-                    void this.render();
-                }
-            };
-        } else {
-            const yearInput = navSection.createEl('input', { type: 'number', cls: 'aa-period-input is-year' });
-            yearInput.value = ctx.yyyy;
-            yearInput.onchange = () => { if (yearInput.value) { this.currentDate.setFullYear(parseInt(yearInput.value)); void this.render(); } };
-        }
-        const nextBtn = navSection.createEl('button', { text: '›', cls: 'aa-nav-btn', attr: { 'aria-label': '下一段' } });
+        const periodBtn = period.createEl('button', { cls: 'ap-pill-select aa-period-pill', text: this.formatPeriodTitle(ctx), attr: { 'aria-label': '选择时间', 'aria-haspopup': 'dialog' } });
+        setIcon(periodBtn.createSpan(), 'chevron-down');
+        periodBtn.onclick = () => this.openPeriodPicker(periodBtn);
+        const nextBtn = period.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': '下一段' } });
+        setIcon(nextBtn, 'chevron-right');
         nextBtn.onclick = async () => { this.adjustDate(1); await this.render(); };
 
-        const selects = toolbar.createDiv({ cls: 'aa-selects' });
-        const currencySelect = selects.createEl('select', { cls: 'dropdown', attr: { 'aria-label': '显示币种' } });
-        ['CNY', 'JPY', 'USD', 'EUR', 'HKD', 'GBP'].forEach(cur => {
-            const opt = currencySelect.createEl('option', { text: cur, value: cur });
-            if (cur === this.displayCurrency) opt.selected = true;
-        });
-        currencySelect.onchange = async () => { this.displayCurrency = currencySelect.value; await this.render(); };
-
-        if (this.plugin.settings.users.length > 0) {
-            const userSelect = selects.createEl('select', { cls: 'dropdown', attr: { 'aria-label': '成员' } });
-            const allOpt = userSelect.createEl('option', { text: '全部成员', value: 'all' });
-            if (this.selectedUserId === 'all') allOpt.selected = true;
-            this.plugin.settings.users.forEach(u => {
-                const opt = userSelect.createEl('option', { text: u.name, value: u.id });
-                if (this.selectedUserId === u.id) opt.selected = true;
-            });
-            userSelect.onchange = async () => {
-                this.selectedUserId = userSelect.value;
-                this.selectedPrimaryCategory = null;
-                await this.render();
-            };
-        }
-
-        // Filters (ledger tab only)
+        const spacer = toolbar.createDiv({ cls: 'ap-grow' });
         if (this.currentTab === PanelTab.Transactions) {
-            const filters = container.createDiv({ cls: 'aa-filters', attr: { id: 'aa-filters' } });
-            const searchInput = filters.createEl('input', { type: 'text', cls: 'aa-search', attr: { id: 'aa-search', placeholder: '搜索商户或备注…（/）' } });
+            const search = spacer.createDiv({ cls: 'ap-search aa-search' });
+            setIcon(search.createSpan(), 'search');
+            const searchInput = search.createEl('input', { type: 'text', attr: { id: 'aa-search', placeholder: '搜索商户或备注（/）', 'aria-label': '搜索' } });
             searchInput.value = this.searchQuery;
             searchInput.oninput = () => {
                 this.searchQuery = searchInput.value || '';
                 void this.refreshGridOnly();
             };
-            searchInput.onkeydown = (e) => { if (e.key === 'Enter') void this.refreshGridOnly(); };
-
-            if (ctx.rawStats) {
-                const categories = new Set<string>();
-                const methods = new Set<string>();
-                ctx.rawStats.transactions.forEach((t: TransactionRecord) => {
-                    const cat = (t.category.split(/[/>:：]/)[0] || '其他').trim();
-                    if (cat) categories.add(cat);
-                    const pm = t.paymentMethod || '未分类';
-                    if (pm) methods.add(pm);
-                });
-
-                const catSelect = filters.createEl('select', { cls: 'dropdown', attr: { 'aria-label': '分类' } });
-                catSelect.createEl('option', { text: '全部分类', value: '' });
-                Array.from(categories).sort().forEach(cat => {
-                    const opt = catSelect.createEl('option', { text: cat, value: cat });
-                    if (this.selectedCats.has(cat)) opt.selected = true;
-                });
-                catSelect.onchange = () => {
-                    this.selectedCats.clear();
-                    if (catSelect.value) this.selectedCats.add(catSelect.value);
-                    void this.refreshGridOnly();
-                };
-
-                const pmSelect = filters.createEl('select', { cls: 'dropdown', attr: { 'aria-label': '支付方式' } });
-                pmSelect.createEl('option', { text: '全部支付方式', value: '' });
-                Array.from(methods).sort().forEach(pm => {
-                    const opt = pmSelect.createEl('option', { text: pm, value: pm });
-                    if (this.selectedPMs.has(pm)) opt.selected = true;
-                });
-                pmSelect.onchange = () => {
-                    this.selectedPMs.clear();
-                    if (pmSelect.value) this.selectedPMs.add(pmSelect.value);
-                    void this.refreshGridOnly();
-                };
-            }
         }
+
+        // Scope, currency, member, category and payment method all live behind one button.
+        const active = this.activeFilterCount();
+        const filterBtn = toolbar.createEl('button', { cls: `ap-pill-select aa-filter-btn${active ? ' is-active' : ''}`, attr: { id: 'aa-filters', 'aria-haspopup': 'dialog' } });
+        setIcon(filterBtn.createSpan(), 'sliders-horizontal');
+        filterBtn.appendText('筛选');
+        if (active) filterBtn.createSpan({ cls: 'ap-pill-count', text: String(active) });
+        filterBtn.onclick = () => this.openFilters(filterBtn, ctx);
 
         this.renderQuickForm(container);
     }
@@ -423,6 +346,131 @@ export class DashboardView extends ItemView {
         if (this.chartScope === 'year') return `${y} 年`;
         if (this.chartScope === 'month') return `${y} 年 ${m} 月`;
         return `${y} 年 ${m} 月 ${d} 日`;
+    }
+
+    /** Filters that narrow the ledger; the time scope and display currency are not counted. */
+    private activeFilterCount(): number {
+        return this.selectedCats.size + this.selectedPMs.size + (this.selectedUserId !== 'all' ? 1 : 0);
+    }
+
+    private openPeriodPicker(anchor: HTMLElement) {
+        openPopover(anchor, 'aa-period-pop', (el, close) => {
+            const pick = (date: Date) => { this.currentDate = date; close(); this.adjustDate(0); void this.render(); };
+            const today = new Date();
+            const fill = (year: number, month: number) => {
+                el.empty();
+                const head = el.createDiv({ cls: 'ap-popover-head' });
+                const back = head.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': '上一页' } });
+                setIcon(back, 'chevron-left');
+                const label = this.chartScope === 'day' ? `${year} 年 ${month + 1} 月` : this.chartScope === 'month' ? `${year} 年` : `${year - 11} – ${year} 年`;
+                head.createSpan({ text: label });
+                const forward = head.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': '下一页' } });
+                setIcon(forward, 'chevron-right');
+                if (this.chartScope === 'month') {
+                    back.onclick = () => fill(year - 1, month);
+                    forward.onclick = () => fill(year + 1, month);
+                    const grid = el.createDiv({ cls: 'ap-month-grid' });
+                    for (let m = 0; m < 12; m++) {
+                        const btn = grid.createEl('button', { text: `${m + 1} 月` });
+                        btn.toggleClass('is-selected', year === this.currentDate.getFullYear() && m === this.currentDate.getMonth());
+                        btn.toggleClass('is-today', year === today.getFullYear() && m === today.getMonth());
+                        btn.onclick = () => pick(new Date(year, m, 1));
+                    }
+                } else if (this.chartScope === 'year') {
+                    back.onclick = () => fill(year - 12, month);
+                    forward.onclick = () => fill(year + 12, month);
+                    const grid = el.createDiv({ cls: 'ap-month-grid' });
+                    for (let y = year - 11; y <= year; y++) {
+                        const btn = grid.createEl('button', { text: String(y) });
+                        btn.toggleClass('is-selected', y === this.currentDate.getFullYear());
+                        btn.toggleClass('is-today', y === today.getFullYear());
+                        btn.onclick = () => pick(new Date(y, 0, 1));
+                    }
+                } else {
+                    back.onclick = () => (month === 0 ? fill(year - 1, 11) : fill(year, month - 1));
+                    forward.onclick = () => (month === 11 ? fill(year + 1, 0) : fill(year, month + 1));
+                    const grid = el.createDiv({ cls: 'ap-month-grid aa-day-grid' });
+                    ['一', '二', '三', '四', '五', '六', '日'].forEach(d => grid.createSpan({ cls: 'ap-cap', text: d }));
+                    const first = new Date(year, month, 1);
+                    for (let i = 0; i < (first.getDay() + 6) % 7; i++) grid.createSpan();
+                    const days = new Date(year, month + 1, 0).getDate();
+                    for (let d = 1; d <= days; d++) {
+                        const btn = grid.createEl('button', { text: String(d) });
+                        btn.toggleClass('is-selected', year === this.currentDate.getFullYear() && month === this.currentDate.getMonth() && d === this.currentDate.getDate());
+                        btn.toggleClass('is-today', year === today.getFullYear() && month === today.getMonth() && d === today.getDate());
+                        btn.onclick = () => pick(new Date(year, month, d));
+                    }
+                }
+            };
+            const start = this.chartScope === 'year' ? Math.max(this.currentDate.getFullYear(), today.getFullYear()) : this.currentDate.getFullYear();
+            fill(start, this.currentDate.getMonth());
+        });
+    }
+
+    private openFilters(anchor: HTMLElement, ctx: RenderContext) {
+        const categories = new Set<string>();
+        const methods = new Set<string>();
+        ctx.rawStats?.transactions.forEach((t: TransactionRecord) => {
+            const cat = (t.category.split(/[/>:：]/)[0] || '其他').trim();
+            if (cat) categories.add(cat);
+            methods.add(t.paymentMethod || '未分类');
+        });
+        openPopover(anchor, 'aa-filter-pop', el => {
+            const fill = () => {
+                el.empty();
+                const section = (title: string) => {
+                    const box = el.createDiv({ cls: 'aa-filter-section' });
+                    box.createDiv({ cls: 'ap-cap', text: title });
+                    return box.createDiv({ cls: 'aa-chips' });
+                };
+                const chip = (parent: HTMLElement, text: string, selected: boolean, onClick: () => void) => {
+                    const btn = parent.createEl('button', { cls: `aa-chip${selected ? ' is-selected' : ''}`, text, attr: { 'aria-pressed': String(selected) } });
+                    btn.onclick = () => { onClick(); fill(); void this.render(); };
+                };
+
+                const scope = el.createDiv({ cls: 'ap-seg aa-filter-scope' });
+                ([['day', '日'], ['month', '月'], ['year', '年']] as const).forEach(([key, label]) => {
+                    const btn = scope.createEl('button', { text: label, cls: this.chartScope === key ? 'is-active' : '' });
+                    btn.onclick = () => {
+                        this.chartScope = key;
+                        this.selectedPrimaryCategory = null;
+                        this.selectedDailyCategory = null;
+                        fill();
+                        void this.render();
+                    };
+                });
+
+                const currencies = section('显示币种');
+                ['CNY', 'JPY', 'USD', 'EUR', 'HKD', 'GBP'].forEach(cur => chip(currencies, cur, cur === this.displayCurrency, () => { this.displayCurrency = cur; }));
+
+                if (this.plugin.settings.users.length > 1) {
+                    const users = section('成员');
+                    chip(users, '全部', this.selectedUserId === 'all', () => { this.selectedUserId = 'all'; this.selectedPrimaryCategory = null; });
+                    this.plugin.settings.users.forEach(u => chip(users, u.name, this.selectedUserId === u.id, () => { this.selectedUserId = u.id; this.selectedPrimaryCategory = null; }));
+                }
+                const toggle = (set: Set<string>, value: string) => { if (set.has(value)) set.delete(value); else set.add(value); };
+                if (categories.size) {
+                    const cats = section('分类');
+                    [...categories].sort().forEach(cat => chip(cats, cat, this.selectedCats.has(cat), () => toggle(this.selectedCats, cat)));
+                }
+                if (methods.size) {
+                    const pms = section('支付方式');
+                    [...methods].sort().forEach(pm => chip(pms, pm, this.selectedPMs.has(pm), () => toggle(this.selectedPMs, pm)));
+                }
+                if (this.activeFilterCount() > 0) {
+                    const foot = el.createDiv({ cls: 'aa-filter-foot' });
+                    const clear = foot.createEl('button', { text: '清除筛选' });
+                    clear.onclick = () => {
+                        this.selectedCats.clear();
+                        this.selectedPMs.clear();
+                        this.selectedUserId = 'all';
+                        fill();
+                        void this.render();
+                    };
+                }
+            };
+            fill();
+        });
     }
 
     private renderQuickForm(container: HTMLElement) {
@@ -1059,10 +1107,9 @@ export class DashboardView extends ItemView {
 
                     const descTd = row.createEl('td');
                     // User Distinction
-                    if (this.plugin.settings.users.length > 0) {
+                    // Only a shared ledger needs to say whose spending a row is.
+                    if (this.plugin.settings.users.length > 1) {
                         const userId = tx.userId || 'default';
-                        // Only show badge if multiple users exist or it's not the default view
-                        // Easier: always show if configured users > 0
                         const user = this.plugin.settings.users.find(u => u.id === userId);
                         if (user) {
                             const badge = descTd.createSpan({ text: user.name.charAt(0).toUpperCase(), cls: 'aa-user-badge', attr: { title: user.name } });

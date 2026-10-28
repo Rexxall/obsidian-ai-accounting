@@ -89,3 +89,45 @@
 .modal.ap-modal { padding: var(--ap-s5); }
 .modal.ap-modal .modal-content .setting-item { border-top: 0; }
 .modal.ap-modal .modal-close-button { border-radius: var(--ap-r-pill); }
+
+/* ---------- Pieces the kit (74) is adding: row actions, pill picker, popover, disclosure row.
+   Written with the kit's tokens; align with the appendix once it has them. ---------- */
+
+/* Row actions: hidden until the row is hovered or has focus; always shown on touch screens */
+.ap .ap-row-actions { display: flex; align-items: center; gap: 2px; flex: none; opacity: 0; transition: opacity var(--ap-fast) var(--ap-ease); }
+.ap :is(:hover, :focus-within) > .ap-row-actions, .ap .ap-row-actions.is-pinned { opacity: 1; }
+.is-mobile .ap .ap-row-actions { opacity: 1; }
+@media (hover: none) { .ap .ap-row-actions { opacity: 1; } }
+
+/* Pill picker: a capsule that opens a menu or popover; tinted while it narrows what is shown */
+.ap button.ap-pill-select {
+  display: inline-flex; align-items: center; gap: 4px; height: auto; padding: 5px 10px 5px 12px;
+  border-radius: var(--ap-r-pill); background: var(--ap-fill); color: var(--ap-label); font: 500 13px/18px var(--ap-font);
+  font-variant-numeric: tabular-nums; box-shadow: none; white-space: nowrap;
+}
+.ap button.ap-pill-select:hover { background: var(--ap-fill-strong); }
+.ap button.ap-pill-select.is-active { background: var(--ap-accent-tint); color: var(--ap-accent); }
+.ap button.ap-pill-select svg { width: 14px; height: 14px; color: var(--ap-label-3); }
+.ap button.ap-pill-select.is-active svg { color: inherit; }
+.ap .ap-pill-count { min-width: 16px; padding: 0 5px; border-radius: var(--ap-r-pill); background: var(--ap-accent); color: var(--ap-on-accent); font: 600 11px/16px var(--ap-font); text-align: center; }
+
+/* Popover: a small glass sheet anchored under a pill */
+.ap-popover.ap {
+  position: fixed; z-index: var(--layer-menu, 65); min-width: 220px; padding: var(--ap-s3); border-radius: var(--ap-r-group);
+  background: var(--ap-glass); -webkit-backdrop-filter: var(--ap-blur); backdrop-filter: var(--ap-blur);
+  box-shadow: var(--ap-glass-edge), var(--ap-shadow-2); animation: ap-sheet-in var(--ap-fast) var(--ap-ease);
+}
+.ap .ap-popover-head { display: flex; align-items: center; justify-content: space-between; gap: var(--ap-s2); margin-bottom: var(--ap-s2); font: var(--ap-headline); font-variant-numeric: tabular-nums; }
+.ap .ap-month-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.ap .ap-month-grid button { padding: 6px 0; justify-content: center; background: transparent; }
+.ap .ap-month-grid button:hover { background: var(--ap-fill); }
+.ap .ap-month-grid button.is-selected { background: var(--ap-accent); color: var(--ap-on-accent); }
+.ap .ap-month-grid button.is-today:not(.is-selected) { color: var(--ap-accent); font-weight: 600; }
+
+/* Disclosure row: one line that opens to show more */
+.ap .ap-disclosure-head { display: flex; align-items: center; gap: var(--ap-s3); cursor: pointer; }
+.ap .ap-disclosure-chevron { display: inline-flex; flex: none; color: var(--ap-label-3); transition: transform var(--ap-fast) var(--ap-ease); }
+.ap .ap-disclosure-chevron svg { width: 14px; height: 14px; }
+.ap .ap-disclosure.is-open .ap-disclosure-chevron { transform: rotate(90deg); }
+.ap .ap-disclosure-body { display: none; }
+.ap .ap-disclosure.is-open > .ap-disclosure-body { display: block; }

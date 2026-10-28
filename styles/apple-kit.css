@@ -305,7 +305,6 @@
   .ap, .theme-dark .ap, .ap.is-dark { --ap-glass: var(--ap-glass-solid); --ap-glass-thin: var(--ap-glass-solid); }
 }
 /* Reduce transparency: solid surfaces, a firmer edge */
-/* .theme-dark .ap is listed because it sets a translucent dark glass with higher specificity */
 @media (prefers-reduced-transparency: reduce) {
   .ap, .is-translucent .ap, .theme-dark .ap, .ap.is-dark { --ap-glass: var(--ap-glass-solid); --ap-glass-thin: var(--ap-glass-solid); --ap-blur: none; --ap-blur-thin: none; --ap-glint: transparent; --ap-group: color-mix(in srgb, var(--text-normal) 4%, var(--background-primary)); }
 }
