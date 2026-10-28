@@ -235,7 +235,7 @@ export class DashboardView extends ItemView {
             container = this.contentEl.createEl('div', { cls: 'ai-accounting-dashboard-container' });
         }
         this.contentEl.addClass('aa-view-content');
-        container.toggleClass('rk-paper', !!this.plugin.settings.paperStyle);
+        container.addClass('ap', 'ap-view');
 
         // We generally shouldn't empty container unless we reconstruct everything.
         // But for tab switching or date change, we often do.
@@ -270,12 +270,12 @@ export class DashboardView extends ItemView {
     }
 
     private renderHeader(container: HTMLElement, ctx: RenderContext) {
-        const head = container.createDiv({ cls: 'rk-head aa-head' });
-        const headMain = head.createDiv({ cls: 'rk-head-main' });
-        headMain.createDiv({ cls: 'rk-kicker', text: 'AI Accounting · 我的账本' });
-        headMain.createEl('h1', { cls: 'rk-title', text: this.formatPeriodTitle(ctx) });
+        const head = container.createDiv({ cls: 'ap-head ap-bar-glass aa-head' });
+        const headMain = head.createDiv({ cls: 'ap-head-main' });
+        headMain.createDiv({ cls: 'ap-eyebrow', text: 'AI Accounting · 我的账本' });
+        headMain.createEl('h1', { cls: 'ap-title', text: this.formatPeriodTitle(ctx) });
 
-        const actions = head.createDiv({ cls: 'rk-head-actions' });
+        const actions = head.createDiv({ cls: 'ap-head-actions' });
         const refreshBtn = actions.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': '刷新' } });
         setIcon(refreshBtn, 'refresh-cw');
         refreshBtn.onclick = () => this.refresh();
@@ -298,13 +298,13 @@ export class DashboardView extends ItemView {
 
         // Tabs, scope and period
         const toolbar = container.createDiv({ cls: 'aa-toolbar' });
-        const tabs = toolbar.createDiv({ cls: 'rk-seg' });
+        const tabs = toolbar.createDiv({ cls: 'ap-seg' });
         [PanelTab.Transactions, PanelTab.Charts].forEach(key => {
             const btn = tabs.createEl('button', { text: key, cls: this.currentTab === key ? 'is-active' : '' });
             btn.onclick = () => { this.currentTab = key; void this.render(); };
         });
 
-        const scopeGroup = toolbar.createDiv({ cls: 'rk-seg' });
+        const scopeGroup = toolbar.createDiv({ cls: 'ap-seg' });
         const scopes: Array<{ key: ChartScope, label: string }> = [
             { key: 'day', label: '当日' },
             { key: 'month', label: '月度' },
@@ -489,9 +489,9 @@ export class DashboardView extends ItemView {
     private async renderGrid(dashboardGrid: HTMLElement, ctx: RenderContext) {
         const { rawStats, navRawStats, navLabel } = ctx;
         if (this.allStats.length === 0 || !rawStats) {
-            const empty = dashboardGrid.createDiv({ cls: 'rk-card aa-empty-state' });
-            empty.createEl('h2', { cls: 'rk-title', text: this.allStats.length === 0 ? '从第一笔记录开始' : '这个时间范围还没有记录' });
-            empty.createEl('p', { cls: 'rk-sub', text: '可以直接录入一笔支出，或用上方日期选择器查看其他月份。已有账单也可以通过 AI 收件箱提取，核对后入账。' });
+            const empty = dashboardGrid.createDiv({ cls: 'ap-card aa-empty-state' });
+            empty.createEl('h2', { cls: 'ap-title', text: this.allStats.length === 0 ? '从第一笔记录开始' : '这个时间范围还没有记录' });
+            empty.createEl('p', { cls: 'ap-sub', text: '可以直接录入一笔支出，或用上方日期选择器查看其他月份。已有账单也可以通过 AI 收件箱提取，核对后入账。' });
             const add = empty.createEl('button', { text: '录入一笔支出', cls: 'mod-cta' });
             add.onclick = () => {
                 const form = this.contentEl.querySelector('.quick-form-wrapper');
@@ -526,7 +526,7 @@ export class DashboardView extends ItemView {
         ]);
 
         const renderTotals = (parent: HTMLElement) => {
-            const card = parent.createDiv({ cls: 'rk-card aa-totals' });
+            const card = parent.createDiv({ cls: 'ap-card aa-totals' });
             const total = this.createMetricCard(card, '期间支出', this.formatAmount(displayStats.total), this.displayCurrency, 'is-main');
             total.labelEl.id = 'aa-dynamic-total-label';
             total.valEl.id = 'aa-dynamic-total-val';
@@ -546,16 +546,16 @@ export class DashboardView extends ItemView {
             renderTotals(aside);
             this.renderBudget(aside, allTx);
 
-            const where = aside.createDiv({ cls: 'rk-card is-flat aa-where' });
-            where.createDiv({ cls: 'rk-label', text: '花在哪' });
+            const where = aside.createDiv({ cls: 'ap-card is-flat aa-where' });
+            where.createDiv({ cls: 'ap-label', text: '花在哪' });
             const cats = Object.entries(displayStats.categories).sort((a, b) => b[1] - a[1]);
             const colors = this.seriesColors();
-            if (cats.length === 0) where.createDiv({ cls: 'rk-cap', text: '暂无数据' });
+            if (cats.length === 0) where.createDiv({ cls: 'ap-cap', text: '暂无数据' });
             cats.forEach(([cat, val], index) => {
-                const row = where.createDiv({ cls: `rk-row aa-where-row${this.selectedCats.has(cat) ? ' is-active' : ''}` });
-                row.createSpan({ cls: 'rk-dot' }).style.background = colors[index % colors.length] || '';
-                row.createSpan({ cls: 'rk-grow', text: cat });
-                row.createSpan({ cls: 'rk-amt', text: this.formatAmount(val) });
+                const row = where.createDiv({ cls: `ap-line aa-where-row${this.selectedCats.has(cat) ? ' is-active' : ''}` });
+                row.createSpan({ cls: 'ap-dot' }).setCssProps({ background: colors[index % colors.length] || '' });
+                row.createSpan({ cls: 'ap-grow', text: cat });
+                row.createSpan({ cls: 'ap-amt', text: this.formatAmount(val) });
                 row.onclick = () => {
                     const active = this.selectedCats.has(cat);
                     this.selectedCats.clear();
@@ -569,30 +569,30 @@ export class DashboardView extends ItemView {
             renderTotals(dashboardGrid);
             const charts = dashboardGrid.createDiv({ cls: 'aa-charts' });
 
-            const chartCard = charts.createDiv({ cls: 'rk-card aa-chart-card' });
+            const chartCard = charts.createDiv({ cls: 'ap-card aa-chart-card' });
             const chartHead = chartCard.createDiv({ cls: 'aa-card-head' });
-            chartHead.createDiv({ cls: 'rk-label', text: this.selectedPrimaryCategory ? `${this.selectedPrimaryCategory} · 子分类` : '支出分类' });
+            chartHead.createDiv({ cls: 'ap-label', text: this.selectedPrimaryCategory ? `${this.selectedPrimaryCategory} · 子分类` : '支出分类' });
             if (this.selectedPrimaryCategory) {
                 const backBtn = chartHead.createEl('button', { text: '← 返回主分类', cls: 'aa-link-btn' });
                 backBtn.onclick = () => { this.selectedPrimaryCategory = null; void this.render(); };
             }
             const canvas = chartCard.createDiv({ cls: 'aa-chart' }).createEl('canvas');
             this.renderCategoryChart(canvas, displayStats);
-            chartCard.createDiv({ cls: 'rk-cap', text: '点分类看子分类；按住 ⌥ 或 ⌘ 点击可以重命名分类。' });
+            chartCard.createDiv({ cls: 'ap-cap', text: '点分类看子分类；按住 ⌥ 或 ⌘ 点击可以重命名分类。' });
 
-            const trendCard = charts.createDiv({ cls: 'rk-card aa-chart-card' });
-            trendCard.createDiv({ cls: 'rk-label', text: '月度趋势' });
+            const trendCard = charts.createDiv({ cls: 'ap-card aa-chart-card' });
+            trendCard.createDiv({ cls: 'ap-label', text: '月度趋势' });
             const trendCanvas = trendCard.createDiv({ cls: 'aa-chart' }).createEl('canvas');
             void this.renderTrendChart(trendCanvas, this.allStats);
 
-            const paymentCard = charts.createDiv({ cls: 'rk-card aa-chart-card' });
-            paymentCard.createDiv({ cls: 'rk-label', text: '支付方式' });
+            const paymentCard = charts.createDiv({ cls: 'ap-card aa-chart-card' });
+            paymentCard.createDiv({ cls: 'ap-label', text: '支付方式' });
             const paymentCanvas = paymentCard.createDiv({ cls: 'aa-chart' }).createEl('canvas');
             this.renderPaymentMethodChart(paymentCanvas, displayStats);
 
             if (this.selectedUserId === 'all' && this.plugin.settings.users.length > 1) {
-                const contribCard = charts.createDiv({ cls: 'rk-card aa-chart-card' });
-                contribCard.createDiv({ cls: 'rk-label', text: '成员' });
+                const contribCard = charts.createDiv({ cls: 'ap-card aa-chart-card' });
+                contribCard.createDiv({ cls: 'ap-label', text: '成员' });
                 const contribCanvas = contribCard.createDiv({ cls: 'aa-chart' }).createEl('canvas');
                 this.renderContributionChart(contribCanvas, rawStats);
             }
@@ -630,10 +630,10 @@ export class DashboardView extends ItemView {
     // 辅助：创建指标卡片
     private createMetricCard(parent: HTMLElement, label: string, value: string, suffix: string = '', cls: string = '') {
         const card = parent.createDiv({ cls: `aa-metric ${cls}`.trim() });
-        const labelEl = card.createSpan({ text: label, cls: 'rk-label' });
+        const labelEl = card.createSpan({ text: label, cls: 'ap-label' });
         const valContainer = card.createDiv();
-        const valEl = valContainer.createSpan({ text: value, cls: 'rk-stat-value' });
-        if (suffix) valContainer.createSpan({ text: suffix, cls: 'rk-stat-unit' });
+        const valEl = valContainer.createSpan({ text: value, cls: 'ap-stat-value' });
+        if (suffix) valContainer.createSpan({ text: suffix, cls: 'ap-stat-unit' });
         return { labelEl, valEl };
     }
 
@@ -660,15 +660,15 @@ export class DashboardView extends ItemView {
         // 1. The ledger itself
         const detailsCard = parent.createDiv({ cls: 'aa-ledger' });
 
-        const analysis = aside.createEl('details', { cls: 'rk-card is-flat aa-analysis' });
-        analysis.createEl('summary', { cls: 'rk-label', text: '按周期看 · 分类细分' });
+        const analysis = aside.createEl('details', { cls: 'ap-card is-flat aa-analysis' });
+        analysis.createEl('summary', { cls: 'ap-label', text: '按周期看 · 分类细分' });
         const rightPanel = analysis.createDiv('aa-analysis-body');
 
         // --- Scope-aware navigation ---
         const navCard = rightPanel.createDiv({ cls: 'aa-nav-card' });
         const navTitle = this.chartScope === 'day' ? '每日开支' :
             this.chartScope === 'month' ? '月度开支' : '年度开支';
-        navCard.createDiv({ cls: 'rk-cap', text: navTitle });
+        navCard.createDiv({ cls: 'ap-cap', text: navTitle });
 
         const navTable = navCard.createEl('table', { cls: 'aa-table is-compact' });
         const navThead = navTable.createEl('thead');
@@ -746,8 +746,8 @@ export class DashboardView extends ItemView {
         sortedItems.forEach(key => {
             const amount = itemAmounts[key] || 0;
             const row = navTbody.createEl('tr', { cls: `is-clickable${key === activeKey ? ' is-selected' : ''}` });
-            row.createEl('td', { text: key, cls: 'rk-num' });
-            row.createEl('td', { text: `${this.formatAmount(amount)} ${this.displayCurrency}`, cls: 'rk-num is-right' });
+            row.createEl('td', { text: key, cls: 'ap-num' });
+            row.createEl('td', { text: `${this.formatAmount(amount)} ${this.displayCurrency}`, cls: 'ap-num is-right' });
 
             row.onclick = () => {
                 if (this.chartScope === 'day') {
@@ -771,14 +771,14 @@ export class DashboardView extends ItemView {
         const displayDate = activeKey;
 
         if (this.selectedSecondaryCategory && this.selectedDailyCategory) {
-            chartCard.createDiv({ cls: 'rk-cap', text: `${displayDate} · ${this.selectedDailyCategory} › ${this.selectedSecondaryCategory}` });
+            chartCard.createDiv({ cls: 'ap-cap', text: `${displayDate} · ${this.selectedDailyCategory} › ${this.selectedSecondaryCategory}` });
             const backBtn = chartCard.createEl('button', { text: '← 返回 ' + this.selectedDailyCategory, cls: 'aa-link-btn' });
             backBtn.onclick = () => {
                 this.selectedSecondaryCategory = null;
                 void this.render();
             };
         } else if (this.selectedDailyCategory) {
-            chartCard.createDiv({ cls: 'rk-cap', text: `${displayDate} · ${this.selectedDailyCategory}` });
+            chartCard.createDiv({ cls: 'ap-cap', text: `${displayDate} · ${this.selectedDailyCategory}` });
             const backBtn = chartCard.createEl('button', { text: '← 返回全部分类', cls: 'aa-link-btn' });
             backBtn.onclick = () => {
                 this.selectedDailyCategory = null;
@@ -786,7 +786,7 @@ export class DashboardView extends ItemView {
                 void this.render();
             };
         } else {
-            chartCard.createDiv({ cls: 'rk-cap', text: displayDate ? `${displayDate} 分类统计` : '每日明细' });
+            chartCard.createDiv({ cls: 'ap-cap', text: displayDate ? `${displayDate} 分类统计` : '每日明细' });
         }
 
         if (displayDate) {
@@ -855,8 +855,8 @@ export class DashboardView extends ItemView {
             if (filteredTransactions.length >= 0) { // Keep table even if empty to show Quick Add
 
                 // Batch Action Bar
-                const batchBar = detailsCard.createDiv({ cls: 'rk-callout aa-batch-bar' });
-                const batchCount = batchBar.createSpan({ cls: 'rk-grow', text: '已选择 0 项' });
+                const batchBar = detailsCard.createDiv({ cls: 'ap-notice aa-batch-bar' });
+                const batchCount = batchBar.createSpan({ cls: 'ap-grow', text: '已选择 0 项' });
                 const batchSplitBtn = batchBar.createEl('button', { text: '批量 AA', cls: 'mod-cta' });
 
                 const selectedSet = new Set<string>();
@@ -912,11 +912,11 @@ export class DashboardView extends ItemView {
                     const existing = detailsCard.querySelector('.batch-aa-panel');
                     if (existing) { existing.remove(); return; }
 
-                    const panel = detailsCard.createDiv({ cls: 'rk-card aa-split-panel batch-aa-panel' });
+                    const panel = detailsCard.createDiv({ cls: 'ap-card aa-split-panel batch-aa-panel' });
                     const detailTable = detailsCard.querySelector('.aa-table');
                     if (detailTable) detailsCard.insertBefore(panel, detailTable);
 
-                    panel.createDiv({ cls: 'rk-label', text: `批量分账 · ${selectedSet.size} 笔` });
+                    panel.createDiv({ cls: 'ap-label', text: `批量分账 · ${selectedSet.size} 笔` });
 
                     const userChecks: Record<string, HTMLInputElement> = {};
                     const usersContainer = panel.createDiv({ cls: 'aa-split-users is-inline' });
@@ -929,7 +929,7 @@ export class DashboardView extends ItemView {
                         userChecks[u.id] = chk;
                     });
 
-                    const actionContainer = panel.createDiv({ cls: 'rk-actions aa-split-actions' });
+                    const actionContainer = panel.createDiv({ cls: 'ap-actions aa-split-actions' });
                     const confirmBtn = actionContainer.createEl('button', { text: '确认批量分账', cls: 'mod-cta' });
 
                     confirmBtn.onclick = async () => {
@@ -995,7 +995,7 @@ export class DashboardView extends ItemView {
 
                 const createSortHeader = (text: string, col: string, width?: string, cls?: string) => {
                     const th = detailHeaderRow.createEl('th', { text, cls: (cls || '') });
-                    if (width) th.style.width = width;
+                    if (width) th.setCssProps({ width });
                     if (col !== 'action') {
                         th.addClass('is-sortable');
                         if (this.sortColumn === col) {
@@ -1037,7 +1037,7 @@ export class DashboardView extends ItemView {
                         const dayRow = detailTbody.createEl('tr', { cls: 'aa-day-row' });
                         const cell = dayRow.createEl('td', { attr: { colspan: '7' } });
                         cell.createSpan({ cls: 'aa-day-label', text: this.formatDayLabel(tx.date) });
-                        const totalEl = cell.createSpan({ cls: 'aa-day-total rk-num' });
+                        const totalEl = cell.createSpan({ cls: 'aa-day-total ap-num' });
                         dayTotals.set(tx.date, { el: totalEl, total: 0 });
                     }
                     const row = detailTbody.createEl('tr', { cls: 'aa-tx-row' });
@@ -1066,12 +1066,12 @@ export class DashboardView extends ItemView {
                         const user = this.plugin.settings.users.find(u => u.id === userId);
                         if (user) {
                             const badge = descTd.createSpan({ text: user.name.charAt(0).toUpperCase(), cls: 'aa-user-badge', attr: { title: user.name } });
-                            badge.style.setProperty('--aa-user', user.color || 'var(--rk-faint)');
+                            badge.setCssProps({ '--aa-user': user.color || 'var(--ap-label-3)' });
                         }
                     }
                     descTd.createSpan({ text: tx.description });
                     const twins = twinCounts.get(`${tx.userId}|${tx.date}|${tx.description}|${tx.amount}|${tx.currency}`) || 0;
-                    if (twins > 1) descTd.createSpan({ cls: 'rk-chip is-good aa-twin', text: `同价 ×${twins}，分别保留` });
+                    if (twins > 1) descTd.createSpan({ cls: 'ap-pill is-good aa-twin', text: `同价 ×${twins}，分别保留` });
 
                     descTd.ondblclick = () => this.makeCellEditable(descTd, tx, 'description');
 
@@ -1092,9 +1092,9 @@ export class DashboardView extends ItemView {
                         }
                     }
 
-                    const amountTd = row.createEl('td', { cls: 'aa-amount-cell rk-num' });
+                    const amountTd = row.createEl('td', { cls: 'aa-amount-cell ap-num' });
                     amountTd.createSpan({ text: this.formatAmount(displayAmt) });
-                    amountTd.createSpan({ cls: 'rk-amt-unit', text: displayCur });
+                    amountTd.createSpan({ cls: 'ap-amt-unit', text: displayCur });
                     const day = dayTotals.get(tx.date);
                     if (day) day.total += displayAmt;
                     amountTd.ondblclick = () => {
@@ -1121,8 +1121,8 @@ export class DashboardView extends ItemView {
                         if (existing) { existing.remove(); return; }
 
                         const ownerId = tx.userId || 'default';
-                        const panel = actionsCell.createDiv({ cls: 'rk-card aa-split-panel inline-aa-panel' });
-                        panel.createDiv({ cls: 'rk-label', text: `发起分账 · 总金额 ${tx.amount}` });
+                        const panel = actionsCell.createDiv({ cls: 'ap-card aa-split-panel inline-aa-panel' });
+                        panel.createDiv({ cls: 'ap-label', text: `发起分账 · 总金额 ${tx.amount}` });
 
                         const userChecks: Record<string, HTMLInputElement> = {};
                         const userInputs: Record<string, HTMLInputElement> = {};
@@ -1165,7 +1165,7 @@ export class DashboardView extends ItemView {
                             const isOwner = u.id === ownerId;
                             const row = usersContainer.createDiv({ cls: 'aa-split-row' });
 
-                            const label = row.createEl('label', { cls: 'aa-split-user rk-grow' });
+                            const label = row.createEl('label', { cls: 'aa-split-user ap-grow' });
                             const chk = label.createEl('input', { type: 'checkbox' });
                             chk.checked = true; // default all checked
                             label.createEl('span', { text: u.name + (isOwner ? ' (付款方)' : '') });
@@ -1191,7 +1191,7 @@ export class DashboardView extends ItemView {
 
                         recalculateEqual();
 
-                        const actionContainer = panel.createDiv({ cls: 'rk-actions aa-split-actions' });
+                        const actionContainer = panel.createDiv({ cls: 'ap-actions aa-split-actions' });
 
                         const equalBtn = actionContainer.createEl('button', { text: '重置平分' });
                         equalBtn.onclick = () => recalculateEqual();
@@ -1330,10 +1330,10 @@ export class DashboardView extends ItemView {
                     input.onkeydown = (e) => { if (e.key === 'Enter') void handleAdd(); };
                 });
             } else {
-                detailsCard.createDiv({ cls: 'rk-cap', text: '暂无交易记录' });
+                detailsCard.createDiv({ cls: 'ap-cap', text: '暂无交易记录' });
             }
         } else {
-            chartCard.createDiv({ cls: 'rk-cap', text: '点上面的周期查看明细' });
+            chartCard.createDiv({ cls: 'ap-cap', text: '点上面的周期查看明细' });
         }
     }
 
@@ -1346,16 +1346,16 @@ export class DashboardView extends ItemView {
         if (!hasBudgets && !hasRecurring) return;
 
         const month = new Date().toISOString().slice(0, 7);
-        const card = parent.createDiv({ cls: 'rk-card is-flat aa-budget' });
-        const head = card.createDiv({ cls: 'rk-split' });
-        head.createDiv({ cls: 'rk-label', text: `本月预算 · ${settings.baseCurrency}` });
+        const card = parent.createDiv({ cls: 'ap-card is-flat aa-budget' });
+        const head = card.createDiv({ cls: 'ap-split' });
+        head.createDiv({ cls: 'ap-label', text: `本月预算 · ${settings.baseCurrency}` });
         if (hasRecurring) {
             const add = head.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': '添加本月固定支出' } });
             setIcon(add, 'calendar-plus');
             add.onclick = () => void this.plugin.addRecurringForMonth(month);
         }
         if (!hasBudgets) {
-            card.createDiv({ cls: 'rk-cap', text: '在设置 → 月度预算里填写后，这里显示本月用了多少。' });
+            card.createDiv({ cls: 'ap-cap', text: '在设置 → 月度预算里填写后，这里显示本月用了多少。' });
             return;
         }
         const usage = budgetUsage(allTx, month, budgets);
@@ -1363,12 +1363,12 @@ export class DashboardView extends ItemView {
         for (const row of rows) {
             const tone = row.ratio > 1 ? 'is-danger' : row.ratio >= 0.8 ? 'is-warn' : 'is-good';
             const item = card.createDiv({ cls: `aa-budget-row${row === usage.total ? ' is-total' : ''}` });
-            const line = item.createDiv({ cls: 'rk-split' });
+            const line = item.createDiv({ cls: 'ap-split' });
             line.createSpan({ text: row.category });
-            line.createSpan({ cls: `rk-amt aa-budget-amt ${tone}`, text: `${this.formatAmount(row.spent)} / ${this.formatAmount(row.limit)}` });
-            const meter = item.createDiv({ cls: `rk-meter ${tone}` });
-            meter.createDiv({ cls: 'rk-meter-fill' }).setCssProps({ '--rk-fill': `${Math.min(row.ratio, 1) * 100}%` });
-            if (row.ratio > 1) item.createDiv({ cls: 'rk-cap aa-budget-over', text: `超出 ${this.formatAmount(row.spent - row.limit)}` });
+            line.createSpan({ cls: `ap-amt aa-budget-amt ${tone}`, text: `${this.formatAmount(row.spent)} / ${this.formatAmount(row.limit)}` });
+            const meter = item.createDiv({ cls: `ap-meter ${tone}` });
+            meter.createDiv({ cls: 'ap-meter-fill' }).setCssProps({ '--ap-value': `${Math.min(row.ratio, 1) * 100}%` });
+            if (row.ratio > 1) item.createDiv({ cls: 'ap-cap aa-budget-over', text: `超出 ${this.formatAmount(row.spent - row.limit)}` });
         }
     }
 
@@ -1412,10 +1412,10 @@ export class DashboardView extends ItemView {
         })).then(() => {
             labels.push(...Object.keys(dict));
             values.push(...Object.values(dict));
-            const textColor = this.getObsidianColor('--rk-muted');
+            const textColor = this.getObsidianColor('--ap-label-2');
             new Chart(canvas, {
                 type: 'pie',
-                data: { labels, datasets: [{ data: values, backgroundColor: this.seriesColors(), borderColor: this.getObsidianColor('--rk-card'), borderWidth: 2 }] },
+                data: { labels, datasets: [{ data: values, backgroundColor: this.seriesColors(), borderColor: this.getObsidianColor('--ap-page'), borderWidth: 2 }] },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
@@ -1467,20 +1467,29 @@ export class DashboardView extends ItemView {
         });
     }
 
-    /** Reads a colour token from the dashboard, so charts follow the theme and the paper style. */
+    /**
+     * Reads a colour token from the dashboard, so charts follow the theme. Tokens may be
+     * color-mix() expressions, which canvas does not take, so the browser resolves them to rgb.
+     */
     private getObsidianColor(variable: string): string {
         const scope = this.contentEl.querySelector('.ai-accounting-dashboard-container') || document.body;
-        return getComputedStyle(scope).getPropertyValue(variable).trim();
+        const value = getComputedStyle(scope).getPropertyValue(variable).trim();
+        if (!value) return '';
+        const probe = (scope as HTMLElement).createDiv();
+        probe.setCssProps({ color: value });
+        const resolved = getComputedStyle(probe).color;
+        probe.remove();
+        return resolved || value;
     }
 
     private seriesColors(): string[] {
-        return [1, 2, 3, 4, 5, 6].map(i => this.getObsidianColor(`--rk-series-${i}`)).filter(Boolean);
+        return [1, 2, 3, 4, 5, 6, 7, 8].map(i => this.getObsidianColor(`--aa-series-${i}`)).filter(Boolean);
     }
 
     /** Any CSS colour with a given opacity, resolved by the browser. */
     private withAlpha(color: string, alpha: number): string {
         const probe = document.body.createDiv();
-        probe.style.color = color;
+        probe.setCssProps({ color });
         const rgb = getComputedStyle(probe).color;
         probe.remove();
         const parts = rgb.match(/[\d.]+/g);
@@ -1511,7 +1520,7 @@ export class DashboardView extends ItemView {
             data = Object.values(stats.categories);
         }
 
-        const textColor = this.getObsidianColor('--rk-muted');
+        const textColor = this.getObsidianColor('--ap-label-2');
 
         new Chart(canvas, {
             type: 'doughnut',
@@ -1520,7 +1529,7 @@ export class DashboardView extends ItemView {
                 datasets: [{
                     data: data,
                     backgroundColor: this.seriesColors(),
-                    borderColor: this.getObsidianColor('--rk-card'),
+                    borderColor: this.getObsidianColor('--ap-page'),
                     borderWidth: 2
                 }]
             },
@@ -1578,7 +1587,7 @@ export class DashboardView extends ItemView {
         const labels = Object.keys(stats.paymentMethods);
         const data = Object.values(stats.paymentMethods);
 
-        const textColor = this.getObsidianColor('--rk-muted');
+        const textColor = this.getObsidianColor('--ap-label-2');
 
         new Chart(canvas, {
             type: 'pie',
@@ -1587,7 +1596,7 @@ export class DashboardView extends ItemView {
                 datasets: [{
                     data: data,
                     backgroundColor: this.seriesColors(),
-                    borderColor: this.getObsidianColor('--rk-card'),
+                    borderColor: this.getObsidianColor('--ap-page'),
                     borderWidth: 2
                 }]
             },
@@ -1638,10 +1647,10 @@ export class DashboardView extends ItemView {
         const colors = labels.map(name => {
             const user = this.plugin.settings.users.find(u => u.name === name);
             if (user) return user.color;
-            return this.getObsidianColor('--rk-series-6');
+            return this.getObsidianColor('--aa-series-8');
         });
 
-        const textColor = this.getObsidianColor('--rk-muted');
+        const textColor = this.getObsidianColor('--ap-label-2');
 
         new Chart(canvas, {
             type: 'pie',
@@ -1650,7 +1659,7 @@ export class DashboardView extends ItemView {
                 datasets: [{
                     data: data,
                     backgroundColor: colors,
-                    borderColor: this.getObsidianColor('--rk-card'),
+                    borderColor: this.getObsidianColor('--ap-page'),
                     borderWidth: 2
                 }]
             },
@@ -1711,10 +1720,10 @@ export class DashboardView extends ItemView {
         const labels = Object.keys(monthlyTotals).sort();
         const data = labels.map(label => monthlyTotals[label]);
 
-        const textColor = this.getObsidianColor('--rk-muted');
-        const gridColor = this.getObsidianColor('--rk-hair');
-        const accentColor = this.getObsidianColor('--rk-accent');
-        const restColor = this.getObsidianColor('--rk-series-6');
+        const textColor = this.getObsidianColor('--ap-label-2');
+        const gridColor = this.getObsidianColor('--ap-sep');
+        const accentColor = this.getObsidianColor('--ap-accent');
+        const restColor = this.getObsidianColor('--aa-series-8');
         const current = `${this.currentDate.getFullYear()}-${String(this.currentDate.getMonth() + 1).padStart(2, '0')}`;
 
         new Chart(canvas, {

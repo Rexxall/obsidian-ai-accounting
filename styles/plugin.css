@@ -7,10 +7,19 @@
 .ai-accounting-dashboard-container {
 	min-height: 100%;
 	padding: 22px 26px 32px;
+	/* Chart series: the accent first, then the system palette */
+	--aa-series-1: var(--ap-accent);
+	--aa-series-2: var(--color-blue);
+	--aa-series-3: var(--color-orange);
+	--aa-series-4: var(--color-green);
+	--aa-series-5: var(--color-pink);
+	--aa-series-6: var(--color-cyan);
+	--aa-series-7: var(--color-yellow);
+	--aa-series-8: var(--ap-label-3);
 }
 
 /* Header and toolbar */
-.ai-accounting-dashboard-container .aa-head { margin-bottom: 12px; }
+.ai-accounting-dashboard-container .aa-head.ap-bar-glass { margin: -22px -26px 14px; padding: 18px 26px 12px; }
 
 .ai-accounting-dashboard-container .aa-toolbar,
 .ai-accounting-dashboard-container .aa-filters {
@@ -34,15 +43,13 @@
 .ai-accounting-dashboard-container .quick-form-wrapper {
 	margin: 0 0 16px;
 	padding: 14px 16px;
-	border: 1px solid var(--rk-hair);
-	border-radius: var(--rk-radius);
-	background: var(--rk-card);
+	border: 1px solid var(--ap-sep);
+	border-radius: var(--ap-r-card);
+	background: var(--ap-group);
 }
-
-.ai-accounting-dashboard-container.rk-paper .quick-form-wrapper { border-color: var(--rk-border); box-shadow: var(--rk-card-shadow); }
 .ai-accounting-dashboard-container .quick-form-inline { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .ai-accounting-dashboard-container .quick-form-inline input:not([type=checkbox]) { flex: 1 1 120px; min-width: 96px; }
-.ai-accounting-dashboard-container .quick-add-toggle { display: flex; align-items: center; gap: 4px; font-size: var(--font-ui-small); color: var(--rk-muted); }
+.ai-accounting-dashboard-container .quick-add-toggle { display: flex; align-items: center; gap: 4px; font-size: var(--font-ui-small); color: var(--ap-label-2); }
 
 /* Layout: ledger + aside */
 .ai-accounting-dashboard-container .aa-ledger-layout {
@@ -61,7 +68,7 @@
 }
 
 /* Totals */
-.ai-accounting-dashboard-container .aa-totals .aa-metric.is-main .rk-label { margin-bottom: 2px; }
+.ai-accounting-dashboard-container .aa-totals .aa-metric.is-main .ap-label { margin-bottom: 2px; }
 
 .ai-accounting-dashboard-container .aa-minor-metrics {
 	display: grid;
@@ -69,20 +76,20 @@
 	gap: 8px;
 	margin-top: 12px;
 	padding-top: 10px;
-	border-top: var(--rk-row-sep);
+	border-top: 0.5px solid var(--ap-sep);
 }
 
-.ai-accounting-dashboard-container .aa-minor-metrics .rk-label { margin-bottom: 0; white-space: nowrap; }
-.ai-accounting-dashboard-container .aa-minor-metrics .rk-label::before { display: none; }
-.ai-accounting-dashboard-container .aa-minor-metrics .rk-stat-value { font-size: 1em; }
-.ai-accounting-dashboard-container .aa-minor-metrics .rk-stat-unit { display: none; }
+.ai-accounting-dashboard-container .aa-minor-metrics .ap-label { margin-bottom: 0; white-space: nowrap; }
+.ai-accounting-dashboard-container .aa-minor-metrics .ap-label::before { display: none; }
+.ai-accounting-dashboard-container .aa-minor-metrics .ap-stat-value { font-size: 1em; }
+.ai-accounting-dashboard-container .aa-minor-metrics .ap-stat-unit { display: none; }
 .ai-accounting-dashboard-container > .dashboard-grid > .aa-totals { margin-bottom: 16px; }
 
 /* Where the money went */
 .ai-accounting-dashboard-container .aa-where-row { padding: 6px 2px; cursor: pointer; }
 .ai-accounting-dashboard-container .aa-where-row:hover { background: var(--background-modifier-hover); }
 .ai-accounting-dashboard-container .aa-where-row.is-active { font-weight: 600; }
-.ai-accounting-dashboard-container .aa-where-row .rk-amt { font-weight: 500; }
+.ai-accounting-dashboard-container .aa-where-row .ap-amt { font-weight: 500; }
 
 /* Period analysis (collapsed by default) */
 .ai-accounting-dashboard-container .aa-analysis summary { margin: 0; cursor: pointer; }
@@ -99,8 +106,8 @@
 
 .ai-accounting-dashboard-container .aa-table th {
 	padding: 6px 8px;
-	border-bottom: 1px solid var(--rk-border);
-	color: var(--rk-faint);
+	border-bottom: 1px solid var(--ap-sep);
+	color: var(--ap-label-3);
 	font-size: var(--font-ui-smaller);
 	font-weight: 500;
 	text-align: left;
@@ -109,22 +116,22 @@
 
 .ai-accounting-dashboard-container .aa-table th.is-sortable { cursor: pointer; user-select: none; }
 .ai-accounting-dashboard-container .aa-table .is-right { text-align: right; }
-.ai-accounting-dashboard-container .aa-table td { padding: 7px 8px; border-bottom: var(--rk-row-sep); vertical-align: middle; }
+.ai-accounting-dashboard-container .aa-table td { padding: 7px 8px; border-bottom: 0.5px solid var(--ap-sep); vertical-align: middle; }
 .ai-accounting-dashboard-container .aa-table.is-compact td { padding: 4px 6px; }
 .ai-accounting-dashboard-container .aa-table tr.is-clickable { cursor: pointer; }
-.ai-accounting-dashboard-container .aa-table tr.is-selected td { background: var(--rk-accent-soft); }
+.ai-accounting-dashboard-container .aa-table tr.is-selected td { background: var(--ap-accent-tint); }
 .ai-accounting-dashboard-container .aa-table .checkbox-col { width: 28px; }
-.ai-accounting-dashboard-container .aa-table .date-col { width: 104px; color: var(--rk-muted); font-variant-numeric: tabular-nums; }
+.ai-accounting-dashboard-container .aa-table .date-col { width: 104px; color: var(--ap-label-2); font-variant-numeric: tabular-nums; }
 .ai-accounting-dashboard-container .aa-tx-row:hover td { background: var(--background-modifier-hover); }
 
 .ai-accounting-dashboard-container .aa-day-row td {
 	padding: 16px 2px 5px;
-	border-bottom: 1px solid var(--rk-border);
+	border-bottom: 1px solid var(--ap-sep);
 }
 
 .ai-accounting-dashboard-container .aa-day-row:first-child td { padding-top: 6px; }
-.ai-accounting-dashboard-container .aa-day-label { font-family: var(--rk-font-head); font-weight: 600; color: var(--rk-text); }
-.ai-accounting-dashboard-container .aa-day-total { float: right; color: var(--rk-faint); }
+.ai-accounting-dashboard-container .aa-day-label { font-family: var(--ap-font); font-weight: 600; color: var(--ap-label); }
+.ai-accounting-dashboard-container .aa-day-total { float: right; color: var(--ap-label-3); }
 
 .ai-accounting-dashboard-container .aa-amount-cell {
 	font-weight: 600;
@@ -188,13 +195,13 @@
 }
 
 .ai-accounting-dashboard-container .aa-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.ai-accounting-dashboard-container .aa-card-head .rk-label { margin: 0; }
+.ai-accounting-dashboard-container .aa-card-head .ap-label { margin: 0; }
 .ai-accounting-dashboard-container .aa-chart { position: relative; height: 250px; margin: 8px 0; }
 .ai-accounting-dashboard-container .aa-chart.is-small { height: 200px; }
 
 /* Empty state */
 .ai-accounting-dashboard-container .aa-empty-state { max-width: 520px; margin: 40px auto; text-align: center; }
-.ai-accounting-dashboard-container .aa-empty-state .rk-sub { margin: 8px 0 16px; }
+.ai-accounting-dashboard-container .aa-empty-state .ap-sub { margin: 8px 0 16px; }
 
 /* Review modal */
 .aa-modal.aa-review-modal { width: min(980px, 94vw); }
@@ -205,26 +212,24 @@
 	width: 220px;
 	max-height: 420px;
 	overflow: auto;
-	border: 1px solid var(--rk-hair);
+	border: 1px solid var(--ap-sep);
 	border-radius: var(--radius-s);
-	background: var(--rk-card);
+	background: var(--ap-group);
 }
-
-.aa-review-modal.rk-paper .aa-review-source { border-color: var(--rk-border); transform: rotate(-0.8deg); }
 .aa-review-modal .aa-review-source img { display: block; width: 100%; }
 .aa-review-modal .aa-review-source pre { margin: 0; padding: 10px; font-size: var(--font-ui-smaller); white-space: pre-wrap; }
 .aa-review-modal .aa-review-main { flex: 1; min-width: 0; overflow-x: auto; }
 
 .aa-review-modal .aa-table { width: 100%; border-collapse: collapse; font-size: var(--font-ui-small); }
-.aa-review-modal .aa-table th { padding: 4px 6px; border-bottom: 1px solid var(--rk-border); color: var(--rk-faint); font-size: var(--font-ui-smaller); font-weight: 500; text-align: left; }
+.aa-review-modal .aa-table th { padding: 4px 6px; border-bottom: 1px solid var(--ap-sep); color: var(--ap-label-3); font-size: var(--font-ui-smaller); font-weight: 500; text-align: left; }
 .aa-review-modal .aa-table .is-right { text-align: right; }
-.aa-review-modal .aa-table td { padding: 4px 4px; border-bottom: var(--rk-row-sep); }
+.aa-review-modal .aa-table td { padding: 4px 4px; border-bottom: 0.5px solid var(--ap-sep); }
 .aa-review-modal .aa-cell-input { width: 100%; min-width: 0; }
 .aa-review-modal .aa-cell-input.is-amount { text-align: right; font-variant-numeric: tabular-nums; }
 .aa-review-modal .aa-cell-input.is-currency { width: 64px; }
-.aa-modal.aa-review-modal input.aa-cell-input.is-flagged { border-color: var(--rk-warn); background: var(--rk-warn-soft); }
+.aa-modal.aa-review-modal input.aa-cell-input.is-flagged { border-color: var(--ap-warn); background: var(--ap-warn-soft); }
 .aa-review-modal .aa-review-summary { margin: 10px 0 8px; font-size: var(--font-ui-small); }
-.aa-review-modal .aa-review-summary span:first-child { color: var(--rk-text); font-weight: 600; }
+.aa-review-modal .aa-review-summary span:first-child { color: var(--ap-label); font-weight: 600; }
 
 @media (max-width: 700px) {
 	.aa-review-modal .aa-review-body { flex-direction: column; }
@@ -242,10 +247,10 @@
 /* Monthly budget card */
 .ai-accounting-dashboard-container .aa-budget { display: grid; gap: var(--size-4-2); }
 .ai-accounting-dashboard-container .aa-budget-row { display: grid; gap: 4px; font-size: var(--font-ui-small); }
-.ai-accounting-dashboard-container .aa-budget-row.is-total { font-weight: 600; padding-bottom: var(--size-4-1); border-bottom: 1px solid var(--rk-hair); }
-.ai-accounting-dashboard-container .aa-budget-amt.is-warn { color: var(--rk-warn); }
+.ai-accounting-dashboard-container .aa-budget-row.is-total { font-weight: 600; padding-bottom: var(--size-4-1); border-bottom: 1px solid var(--ap-sep); }
+.ai-accounting-dashboard-container .aa-budget-amt.is-warn { color: var(--ap-warn); }
 .ai-accounting-dashboard-container .aa-budget-amt.is-danger,
-.ai-accounting-dashboard-container .aa-budget-over { color: var(--rk-danger); }
+.ai-accounting-dashboard-container .aa-budget-over { color: var(--ap-bad); }
 
 /* Settings: lists of members, recurring expenses and endpoints */
 .aa-settings .aa-settings-note { margin: 0 0 var(--size-4-2); }

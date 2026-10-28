@@ -22,7 +22,7 @@ export class ReviewImportModal extends Modal {
     private resolve: (value: TransactionData[] | null) => void = () => {};
     private accepted = false;
     private draft: TransactionData[];
-    constructor(app: App, rows: TransactionData[], private owner: string, private source: string, private preview: ReviewSource = {}, private paper = false, private draftLabel = 'AI 已填草稿') {
+    constructor(app: App, rows: TransactionData[], private owner: string, private source: string, private preview: ReviewSource = {}, private draftLabel = 'AI 已填草稿') {
         super(app);
         this.draft = rows.map(row => ({ ...row }));
     }
@@ -31,9 +31,9 @@ export class ReviewImportModal extends Modal {
     }
     onOpen() {
         this.modalEl.addClass('aa-modal', 'aa-review-modal');
-        this.modalEl.toggleClass('rk-paper', this.paper);
+        this.modalEl.addClass('ap', 'ap-modal');
         this.setTitle('核对后入账');
-        this.contentEl.createDiv({ cls: 'rk-modal-kicker', text: [this.draftLabel, '还没有入账', this.owner, this.source, `${this.draft.length} 笔`].filter(Boolean).join(' · ') });
+        this.contentEl.createDiv({ cls: 'ap-modal-kicker', text: [this.draftLabel, '还没有入账', this.owner, this.source, `${this.draft.length} 笔`].filter(Boolean).join(' · ') });
 
         const body = this.contentEl.createDiv({ cls: 'aa-review-body' });
         if (this.preview.imageSrc || this.preview.text) {
@@ -47,8 +47,8 @@ export class ReviewImportModal extends Modal {
         const header = table.createEl('thead').createEl('tr');
         FIELDS.forEach(field => header.createEl('th', { text: field.label, cls: field.key === 'amount' ? 'is-right' : '' }));
         const body2 = table.createEl('tbody');
-        const summary = right.createDiv({ cls: 'rk-split aa-review-summary' });
-        const notes = right.createDiv({ cls: 'rk-callout is-warn aa-review-notes' });
+        const summary = right.createDiv({ cls: 'ap-split aa-review-summary' });
+        const notes = right.createDiv({ cls: 'ap-notice is-warn aa-review-notes' });
 
         // Cells the AI left empty or unreadable are marked, so it is clear what to check.
         const refresh = () => {
@@ -99,8 +99,8 @@ export class ReviewImportModal extends Modal {
         }
         refresh();
 
-        const foot = this.contentEl.createDiv({ cls: 'rk-modal-foot' });
-        foot.createDiv({ cls: 'rk-foot-note', text: '确认日期、金额和币种后再入账。' });
+        const foot = this.contentEl.createDiv({ cls: 'ap-modal-foot' });
+        foot.createDiv({ cls: 'ap-foot-note', text: '确认日期、金额和币种后再入账。' });
         foot.createEl('button', { text: '暂不入账' }).onclick = () => this.close();
         foot.createEl('button', { text: `确认 ${this.draft.length} 笔入账`, cls: 'mod-cta' }).onclick = () => {
             try {

@@ -18,7 +18,7 @@ export class EditTransactionModal extends Modal {
         const { contentEl } = this;
         contentEl.empty();
         this.modalEl.addClass('aa-modal');
-        this.modalEl.toggleClass('rk-paper', !!this.plugin.settings.paperStyle);
+        this.modalEl.addClass('ap', 'ap-modal');
         this.setTitle('编辑交易');
 
         let date = this.tx.date;

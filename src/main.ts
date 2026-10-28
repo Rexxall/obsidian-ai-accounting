@@ -184,7 +184,7 @@ export default class AccountingPlugin extends Plugin {
 		}
 		const userId = this.settings.currentUser || this.settings.users[0]?.id || 'default';
 		const userName = this.settings.users.find(u => u.id === userId)?.name || '';
-		const reviewed = await new ReviewImportModal(this.app, drafts, userName, `${month} 固定支出`, {}, !!this.settings.paperStyle, '固定支出草稿').review();
+		const reviewed = await new ReviewImportModal(this.app, drafts, userName, `${month} 固定支出`, {}, '固定支出草稿').review();
 		if (!reviewed?.length) return;
 		await this.saveTransactions(reviewed, userId, row => row.id || '');
 		new Notice(`已入账 ${reviewed.length} 笔固定支出。`);
@@ -314,8 +314,7 @@ export default class AccountingPlugin extends Plugin {
             if (!extracted.length) { processingNotice.hide(); return; }
             processingNotice.hide();
             const dataArray = await new ReviewImportModal(this.app, extracted, userName, file.name,
-                isImage ? { imageSrc: this.app.vault.getResourcePath(file) } : { text: content.slice(0, 1200) },
-                !!this.settings.paperStyle).review();
+                isImage ? { imageSrc: this.app.vault.getResourcePath(file) } : { text: content.slice(0, 1200) }).review();
             if (!dataArray) return;
             const sourceHash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(content))), byte => byte.toString(16).padStart(2, '0')).join('');
 			if (dataArray && dataArray.length > 0) {

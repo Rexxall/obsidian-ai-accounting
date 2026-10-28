@@ -52,11 +52,6 @@ Most expense apps keep your data in their own database, and the ones that read r
 - **Several endpoints with fallback.** If the first service fails, the next enabled one is tried.
 - **Keys in Obsidian's secret storage.** Pick or create a secret in settings; the plugin's settings keep only its name. Other plugins can use the same secret, so a Gemini key is pasted once.
 
-### 纸墨风格 (Paper & ink style, optional)
-
-Turn it on in settings for a paper-and-ink look. Off by default, so the dashboard follows your theme. Below: the review window, with the receipt next to the draft rows.
-
-<img src="docs/screenshots/paper-review.jpg" width="860">
 
 ## Install
 
@@ -110,7 +105,7 @@ npm test        # ledger and request tests
 npm run lint
 ```
 
-`styles.css` is generated. Edit `styles/plugin.css` (or the shared `styles/kit.css`, the same in all of my plugins) and run `npm run styles`.
+`styles.css` is generated. Edit `styles/plugin.css` (or the shared glass kit `styles/apple-kit.css` and `styles/ap-helpers.css`, the same in all of my plugins) and run `npm run styles`.
 
 ## Known limits
 
@@ -123,6 +118,7 @@ npm run lint
 
 **0.5.0**
 
+- New look in the style of current Apple apps: solid cards and grouped lists, a glass header bar and glass dialogs, settings drawn as grouped lists, charts in eight distinct colours (the seventh category no longer repeats the first colour). Follows your theme and accent colour; glass turns solid when the system asks for reduced transparency. The paper style option is gone.
 - New id `ai-accounting` and name **AI Accounting**, as the community directory requires. Settings from `ai-accounting-plugin` are imported on first start.
 - Monthly budgets by category, with a budget card on the ledger page.
 - Recurring expenses, added each month through the review dialog and never twice.

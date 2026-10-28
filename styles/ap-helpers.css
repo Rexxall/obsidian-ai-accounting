@@ -1,0 +1,91 @@
+
+/* ==========================================================================
+   Glass kit helpers — small layout pieces the plugins share on top of apple-kit.css.
+   Same file in every plugin. Everything is scoped under .ap.
+   ========================================================================== */
+
+/* Soft tints of the status colours */
+.ap {
+  --ap-good-soft: color-mix(in srgb, var(--ap-good) 14%, transparent);
+  --ap-warn-soft: color-mix(in srgb, var(--ap-warn) 14%, transparent);
+  --ap-bad-soft: color-mix(in srgb, var(--ap-bad) 13%, transparent);
+}
+
+/* Panel header: a glass bar that the panel scrolls under */
+.ap .ap-head { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--ap-s3); }
+.ap .ap-head.ap-bar-glass { margin: calc(-1 * var(--ap-s4)) calc(-1 * var(--ap-s4)) var(--ap-s4); padding: var(--ap-s4) var(--ap-s4) var(--ap-s3); }
+.ap .ap-head-main { min-width: 0; display: grid; gap: 2px; }
+.ap .ap-head-actions { display: flex; align-items: center; gap: var(--ap-s1); flex-wrap: wrap; justify-content: flex-end; }
+.ap .ap-title { margin: 0; font: var(--ap-title-2); color: var(--ap-label); }
+.ap .ap-sub { font: var(--ap-subhead); color: var(--ap-label-2); }
+.ap .ap-label { margin: 0 0 var(--ap-s2); font: var(--ap-headline); color: var(--ap-label); }
+.ap .ap-stack { display: flex; flex-direction: column; gap: var(--ap-s3); }
+
+/* Numbers */
+.ap .ap-num { font-variant-numeric: tabular-nums; }
+.ap .ap-stat-value { font: 600 24px/30px var(--ap-font-round); letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+.ap .ap-stat-unit { margin-left: 4px; font: var(--ap-callout); color: var(--ap-label-2); }
+.ap .ap-cap { margin-top: 2px; font: var(--ap-subhead); color: var(--ap-label-2); }
+.ap .ap-split { display: flex; justify-content: space-between; gap: var(--ap-s2); font: var(--ap-subhead); color: var(--ap-label-2); font-variant-numeric: tabular-nums; }
+.ap .ap-muted { color: var(--ap-label-2); }
+
+/* Cards: a flat card sits inside the page like an inset group; tones only tint the edge */
+.ap .ap-card.is-flat { background: var(--ap-group); box-shadow: var(--ap-hair); }
+.ap .ap-card.is-warn { box-shadow: 0 0 0 1px color-mix(in srgb, var(--ap-warn) 55%, transparent), var(--ap-shadow-1); }
+.ap .ap-card.is-danger { box-shadow: 0 0 0 1px color-mix(in srgb, var(--ap-bad) 55%, transparent), var(--ap-shadow-1); }
+
+/* Meter: the fill is a child element, its width set through --ap-value */
+.ap .ap-meter { margin: var(--ap-s2) 0 6px; }
+.ap .ap-meter-fill { height: 100%; width: var(--ap-value, 0%); max-width: 100%; border-radius: inherit; background: var(--ap-accent); transition: width var(--ap-slow) var(--ap-ease); }
+.ap .ap-meter.is-good .ap-meter-fill { background: var(--ap-good); }
+.ap .ap-meter.is-warn .ap-meter-fill { background: var(--ap-warn); }
+.ap .ap-meter.is-danger .ap-meter-fill { background: var(--ap-bad); }
+
+/* Notices: neutral unless a tone is given; the text says what is wrong, colour only supports it */
+.ap .ap-notice { background: var(--ap-group); box-shadow: var(--ap-hair); line-height: 1.45; }
+.ap .ap-notice.is-good { background: color-mix(in srgb, var(--ap-good) 11%, var(--ap-page)); box-shadow: none; }
+.ap .ap-notice.is-warn { background: color-mix(in srgb, var(--ap-warn) 11%, var(--ap-page)); box-shadow: none; }
+.ap .ap-notice.is-danger { background: color-mix(in srgb, var(--ap-bad) 10%, var(--ap-page)); box-shadow: none; }
+.ap .ap-notice strong { font-weight: 600; }
+.ap .ap-notice a { color: var(--ap-accent); }
+
+/* Pills: the old "danger" tone is the kit's "bad" */
+.ap .ap-pill.is-danger { background: color-mix(in srgb, var(--ap-bad) 14%, transparent); color: var(--ap-bad); }
+
+/* List lines inside cards: hairline separators that start at the text */
+.ap .ap-line { display: flex; align-items: center; gap: var(--ap-s3); padding: var(--ap-s2) 0; position: relative; }
+.ap .ap-line + .ap-line::before { content: ""; position: absolute; top: 0; left: 0; right: 0; border-top: 0.5px solid var(--ap-sep); }
+.ap .ap-grow { flex: 1; min-width: 0; }
+.ap .ap-amt { margin-left: auto; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ap .ap-amt-unit { margin-left: 3px; font: var(--ap-subhead); color: var(--ap-label-2); }
+.ap .ap-dot { display: inline-block; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--ap-label-3); }
+
+/* Actions */
+.ap .ap-actions { display: flex; gap: var(--ap-s2); align-items: center; }
+.ap .ap-wide { flex: 1; width: 100%; justify-content: center; }
+
+/* Obsidian's own buttons and fields inside a glass-kit surface: capsules and soft fields */
+.ap :where(button:not(.clickable-icon)) {
+  border-radius: var(--ap-r-pill); box-shadow: none; background: var(--ap-fill); color: var(--ap-label);
+  font: 500 13px/18px var(--ap-font); padding: 6px 14px; height: auto;
+  transition: background var(--ap-fast) var(--ap-ease), transform var(--ap-fast) var(--ap-ease);
+}
+.ap :where(button:not(.clickable-icon)):hover { background: var(--ap-fill-strong); }
+.ap :where(button:not(.clickable-icon)):active { transform: scale(0.97); }
+.ap :where(button.mod-cta) { background: var(--ap-accent); color: var(--ap-on-accent); box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.25); }
+.ap :where(button.mod-cta):hover { background: color-mix(in srgb, var(--ap-accent) 88%, black); }
+.ap :where(button.mod-warning) { background: none; color: var(--ap-bad); }
+.ap :where(button:disabled) { opacity: 0.45; transform: none; }
+.ap :is(input[type="text"], input[type="number"], input[type="date"], input[type="time"], input[type="datetime-local"], input[type="password"], input[type="search"], select, textarea) {
+  border-radius: var(--ap-r-field); border: 0; box-shadow: var(--ap-hair); background-color: var(--ap-page);
+}
+.ap :is(input, select, textarea):focus { box-shadow: 0 0 0 1px var(--ap-accent), 0 0 0 4px var(--ap-accent-tint); }
+.ap .clickable-icon { border-radius: var(--ap-r-pill); }
+
+/* Modal parts */
+.ap .ap-modal-kicker { margin: -6px 0 var(--ap-s3); font: var(--ap-subhead); color: var(--ap-label-2); text-align: center; }
+.ap .ap-modal-foot { display: flex; align-items: center; justify-content: flex-end; gap: var(--ap-s2); margin-top: var(--ap-s4); padding-top: var(--ap-s3); box-shadow: inset 0 0.5px 0 var(--ap-sep); }
+.ap .ap-modal-foot .ap-foot-note { flex: 1; font: var(--ap-subhead); color: var(--ap-label-2); }
+.modal.ap-modal { padding: var(--ap-s5); }
+.modal.ap-modal .modal-content .setting-item { border-top: 0; }
+.modal.ap-modal .modal-close-button { border-radius: var(--ap-r-pill); }

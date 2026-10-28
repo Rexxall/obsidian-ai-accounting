@@ -50,8 +50,6 @@ export interface AccountingSettings {
 	dailyJournalEnabled: boolean;
 	dailyJournalFolderPath: string;
 	dailyJournalFilePattern: string; // e.g. YYYY-MM-DD
-	// Appearance
-	paperStyle: boolean;
 	// Planning
 	/** One budget per line, "分类 金额", in the report currency. */
 	budgetText: string;
@@ -80,7 +78,6 @@ export const DEFAULT_SETTINGS: AccountingSettings = {
 	dailyJournalEnabled: false,
 	dailyJournalFolderPath: 'Daily',
 	dailyJournalFilePattern: 'YYYY-MM-DD',
-	paperStyle: false,
 	budgetText: '',
 	recurring: []
 }
@@ -96,7 +93,7 @@ export class AccountingSettingTab extends PluginSettingTab {
 	display(): void {
 		const { containerEl } = this;
 		containerEl.empty();
-		containerEl.addClass('aa-settings');
+		containerEl.addClass('aa-settings', 'ap', 'ap-settings');
 		const s = this.plugin.settings;
 		const save = async () => { await this.plugin.saveSettings(); };
 
@@ -155,18 +152,6 @@ export class AccountingSettingTab extends PluginSettingTab {
 				.setPlaceholder('YYYY-MM-DD')
 				.setValue(s.dailyJournalFilePattern)
 				.onChange(async value => { s.dailyJournalFilePattern = value.trim(); await save(); }));
-
-		new Setting(containerEl).setName('外观').setHeading();
-		new Setting(containerEl)
-			.setName('纸墨风格')
-			.setDesc('纸色底、细墨线、衬线数字。关闭时跟随 Obsidian 主题。')
-			.addToggle(toggle => toggle
-				.setValue(!!s.paperStyle)
-				.onChange(async value => {
-					s.paperStyle = value;
-					await save();
-					this.plugin.refreshDashboards();
-				}));
 	}
 
 	private renderBudgets(containerEl: HTMLElement) {
