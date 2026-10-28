@@ -2,6 +2,8 @@ import { requestUrl, Notice } from 'obsidian';
 import { AccountingSettings } from '../settings';
 
 export interface TransactionData {
+    /** Set for rows whose ID is known in advance, such as recurring expenses. */
+    id?: string;
     date: string;
     description: string;
     category: string;
@@ -13,8 +15,13 @@ export interface TransactionData {
 export class AIService {
     private settings: AccountingSettings;
 
-    constructor(settings: AccountingSettings) {
+    /** Keys live in Obsidian's secret storage; settings only hold the secret names. */
+    constructor(settings: AccountingSettings, private getSecret: (name: string) => string = () => '') {
         this.settings = settings;
+    }
+
+    private geminiKey(): string {
+        return (this.settings.geminiSecretName && this.getSecret(this.settings.geminiSecretName)) || this.settings.geminiApiKey || '';
     }
 
     async processInput(content: string, isImage: boolean = false): Promise<TransactionData[]> {
@@ -53,12 +60,12 @@ export class AIService {
     }
 
     private async processGemini(content: string, isImage: boolean): Promise<TransactionData[]> {
-        if (!this.settings.geminiApiKey) {
-            new Notice('Please configure your Gemini API Key in settings.');
+        if (!this.geminiKey()) {
+            new Notice('请先在设置里选择 Gemini API 密钥。');
             return [];
         }
 
-        const model = this.settings.geminiModel || 'gemini-1.5-flash';
+        const model = this.settings.geminiModel || 'gemini-2.5-flash';
         // Models usually start with "models/" in some SDKs, but here we use the URL directly
         // Key goes in a header, not the URL, so it never appears in logged URLs or error messages.
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
@@ -107,34 +114,24 @@ Return ONLY the JSON array. Do not include markdown code blocks.
 
 Input: ${isImage ? '[An image was provided]' : content}`;
 
-        const body: any = {
-            contents: [{
-                parts: []
-            }],
+        type GeminiPart = { text: string } | { inlineData: { mimeType: string; data: string } };
+        const parts: GeminiPart[] = isImage
+            // content is base64; Gemini reads the actual format from the bytes.
+            ? [{ inlineData: { mimeType: "image/jpeg", data: content } }, { text: prompt }]
+            : [{ text: prompt + "\n\n" + content }];
+        const body = {
+            contents: [{ parts }],
             generationConfig: {
                 responseMimeType: "application/json",
             }
         };
-
-        if (isImage) {
-            // content should be base64 string
-            body.contents[0].parts.push({
-                inlineData: {
-                    mimeType: "image/jpeg", // Assuming jpeg for now
-                    data: content
-                }
-            });
-            body.contents[0].parts.push({ text: prompt });
-        } else {
-            body.contents[0].parts.push({ text: prompt + "\n\n" + content });
-        }
 
         try {
             const response = await requestUrl({
                 url,
                 method: 'POST',
                 contentType: 'application/json',
-                headers: { 'x-goog-api-key': this.settings.geminiApiKey },
+                headers: { 'x-goog-api-key': this.geminiKey() },
                 body: JSON.stringify(body),
                 throw: false // Handle status ourselves
             });
@@ -149,9 +146,9 @@ Input: ${isImage ? '[An image was provided]' : content}`;
                 return [];
             }
 
-            const result = response.json;
-            const textResponse = this.cleanJSON(result.candidates[0].content.parts[0].text);
-            const parsed = JSON.parse(textResponse);
+            const result = response.json as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
+            const textResponse = this.cleanJSON(result.candidates?.[0]?.content?.parts?.[0]?.text ?? '[]');
+            const parsed: unknown = JSON.parse(textResponse);
             return this.normalizeDraft(Array.isArray(parsed) ? parsed : [parsed]);
         } catch (error) {
             console.error('Gemini API Error:', error);
@@ -166,7 +163,8 @@ Input: ${isImage ? '[An image was provided]' : content}`;
      */
     private async processOpenAIWithFallback(content: string, isImage: boolean): Promise<TransactionData[]> {
         // 构建候选列表：优先使用 apiEndpoints，兼容旧配置
-        const candidates = (this.settings.apiEndpoints || []).filter(ep => ep.enabled);
+        const candidates = (this.settings.apiEndpoints || []).filter(ep => ep.enabled)
+            .map(ep => ({ ...ep, apiKey: ep.apiKeySecret ? this.getSecret(ep.apiKeySecret) : ep.apiKey }));
 
         // 若列表为空，降级到旧的单一 endpoint 配置
         if (candidates.length === 0) {
@@ -239,18 +237,19 @@ Input: ${isImage ? '[An image was provided]' : content}`;
 
         const url = `${endpointUrl}/chat/completions`;
 
-        const messages: any[] = [
+        type ChatContent = { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } };
+        const userContent: ChatContent[] = [];
+        const messages = [
             {
                 role: "system",
                 content: "You are a helpful bookkeeping assistant. Extract transaction data into a JSON array. Return ONLY the JSON. Do not use markdown code blocks."
             },
             {
                 role: "user",
-                content: []
+                content: userContent
             }
         ];
 
-        const userContent = messages[1].content;
         const textPrompt = `Extract transaction details for bookkeeping. The input may contain multiple transactions. 
 Return a JSON array of objects with keys: date (YYYY-MM-DD), description (preserve full context with standardized merchant names), category, amount (number), currency (3-letter code), paymentMethod (string).
 
@@ -285,15 +284,15 @@ IMPORTANT PAYMENT METHOD NORMALIZATION:
 If no currency is specified in the input, use ${this.settings.defaultInputCurrency} as the default.`;
 
         if (isImage) {
-            userContent.push({ type: "text", text: textPrompt });
+            userContent.push({ type: 'text', text: textPrompt });
             userContent.push({
-                type: "image_url",
+                type: 'image_url',
                 image_url: {
                     url: `data:image/jpeg;base64,${content}`
                 }
             });
         } else {
-            userContent.push({ type: "text", text: textPrompt + "\n\n" + content });
+            userContent.push({ type: 'text', text: textPrompt + "\n\n" + content });
         }
 
         const response = await requestUrl({
@@ -317,16 +316,15 @@ If no currency is specified in the input, use ${this.settings.defaultInputCurren
             throw new Error(errMsg);
         }
 
-        const result = response.json;
-        let textResponse = result.choices[0].message.content;
-        textResponse = this.cleanJSON(textResponse);
+        const result = response.json as { choices?: { message?: { content?: string } }[] };
+        const textResponse = this.cleanJSON(result.choices?.[0]?.message?.content ?? '[]');
 
-        const parsed = JSON.parse(textResponse);
+        const parsed: unknown = JSON.parse(textResponse);
         // Some models might wrap the array in a root object like { "transactions": [...] } 
         // if we force response_format: json_object. Let's be flexible.
         if (Array.isArray(parsed)) return this.normalizeDraft(parsed);
         if (typeof parsed === 'object' && parsed !== null) {
-            const possibleArray = Object.values(parsed).find(v => Array.isArray(v));
+            const possibleArray = Object.values(parsed).find((v): v is unknown[] => Array.isArray(v));
             if (possibleArray) return this.normalizeDraft(possibleArray);
             return this.normalizeDraft([parsed]);
         }

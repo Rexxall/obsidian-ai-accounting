@@ -1,4 +1,4 @@
-import { Notice, Plugin, TFile, TFolder, TAbstractFile, arrayBufferToBase64, WorkspaceLeaf } from 'obsidian';
+import { Notice, Plugin, TFile, TFolder, TAbstractFile, arrayBufferToBase64, WorkspaceLeaf, normalizePath } from 'obsidian';
 import { DEFAULT_SETTINGS, AccountingSettings, AccountingSettingTab } from "./settings";
 import { FXService } from "./services/FXService";
 import { AIService } from "./services/AIService";
@@ -6,6 +6,11 @@ import { DataService } from "./services/DataService";
 import { DashboardView, VIEW_TYPE_DASHBOARD } from "./DashboardView";
 
 import { ReviewImportModal } from "./modals/ReviewImportModal";
+import { recurringDrafts } from "./services/planning";
+import { TransactionRecord } from "./services/DataService";
+import { TransactionData } from "./services/AIService";
+
+const OLD_PLUGIN_ID = 'ai-accounting-plugin';
 
 export default class AccountingPlugin extends Plugin {
 	private processingFiles = new Set<string>();
@@ -18,7 +23,7 @@ export default class AccountingPlugin extends Plugin {
 		await this.loadSettings();
 
 		this.fxService = new FXService(this.app, this.manifest.dir!);
-		this.aiService = new AIService(this.settings);
+		this.aiService = new AIService(this.settings, name => this.secret(name));
 		this.dataService = new DataService(this.app, this.settings);
 
 
@@ -51,35 +56,35 @@ export default class AccountingPlugin extends Plugin {
 
 		this.addCommand({
 			id: 'scan-magic-inbox',
-			name: 'Scan Magic Inbox Now',
-			callback: () => this.scanInbox()
+			name: 'Scan inbox now',
+			callback: () => void this.scanInbox()
 		});
 
 		this.addCommand({
 			id: 'open-accounting-dashboard',
-			name: 'Open Financial Dashboard',
-			callback: () => this.activateView()
+			name: 'Open dashboard',
+			callback: () => void this.activateView()
 		});
 
 		this.addCommand({
 			id: 'process-current-note',
-			name: 'Process Current Note for Bookkeeping',
-			callback: () => this.processCurrentNote()
+			name: 'Read the current note into the ledger',
+			callback: () => void this.processCurrentNote()
 		});
 
 		this.addCommand({
 			id: 'open-dashboard-new-pane',
-			name: 'Open Financial Dashboard in New Pane',
-			callback: () => this.openNewDashboard()
+			name: 'Open dashboard in a new pane',
+			callback: () => void this.openNewDashboard()
 		});
 
 		this.addCommand({
 			id: 'regenerate-all-visuals',
-			name: 'Regenerate All Monthly Report Visuals',
+			name: 'Regenerate charts in all monthly reports',
 			callback: async () => {
 				const folder = this.app.vault.getAbstractFileByPath(this.settings.financeFolderPath);
 				if (!(folder instanceof TFolder)) {
-					new Notice('Finance folder not found');
+					new Notice('找不到账本文件夹。');
 					return;
 				}
 
@@ -89,19 +94,25 @@ export default class AccountingPlugin extends Plugin {
 					/^\d{4}-\d{2}$/.test(f.basename)
 				) as TFile[];
 
-				new Notice(`🔄 Regenerating visuals for ${files.length} reports...`);
+				new Notice(`正在更新 ${files.length} 份月报的图表…`);
 
 				for (const file of files) {
 					await this.dataService.updateMonthlyFileVisuals(file);
 				}
 
-				new Notice('✅ All monthly report visuals regenerated!');
+				new Notice('月报图表已全部更新。');
 			}
 		});
 
 		this.addCommand({
+			id: 'add-recurring-expenses',
+			name: "Add this month's recurring expenses",
+			callback: () => void this.addRecurringForMonth()
+		});
+
+		this.addCommand({
 			id: 'sync-historical-to-daily-journal',
-			name: 'Sync Historical Transactions to Daily Journal',
+			name: 'Copy past transactions to daily notes',
 			callback: async () => {
 				await this.syncHistoricalToDailyJournal();
 			}
@@ -111,7 +122,7 @@ export default class AccountingPlugin extends Plugin {
 			this.app.workspace.on('editor-menu', (menu, editor, view) => {
 				menu.addItem((item) => {
 					item
-						.setTitle('Process for Bookkeeping')
+						.setTitle('记账：识别这篇笔记')
 						.setIcon('coins')
 						.onClick(async () => {
 							await this.processCurrentNote();
@@ -122,7 +133,7 @@ export default class AccountingPlugin extends Plugin {
 
 		this.addSettingTab(new AccountingSettingTab(this.app, this));
 
-		this.addRibbonIcon('pie-chart', 'Accounting Dashboard', () => {
+		this.addRibbonIcon('pie-chart', 'Open AI Accounting', () => {
 			void this.activateView();
 		});
 
@@ -140,14 +151,54 @@ export default class AccountingPlugin extends Plugin {
 		});
 	}
 
+	/**
+	 * Write reviewed rows to the monthly ledgers (and daily notes when enabled).
+	 * Each row keeps a stable ID, so writing the same rows again adds nothing.
+	 */
+	async saveTransactions(rows: TransactionData[], userId: string, idFor: (row: TransactionData, index: number) => string): Promise<string[]> {
+		const batches: Record<string, TransactionRecord[]> = {};
+		const dailyMap: Record<string, TransactionRecord[]> = {};
+		for (const [index, data] of rows.entries()) {
+			const baseAmount = await this.fxService.convert(data.amount, data.currency, this.settings.baseCurrency, data.date);
+			const rate = await this.fxService.getExchangeRate(data.currency, this.settings.baseCurrency, data.date);
+			const record: TransactionRecord = { ...data, id: data.id || idFor(data, index), baseAmount, rate };
+			(batches[data.date.slice(0, 7)] ??= []).push(record);
+			(dailyMap[data.date] ??= []).push(record);
+		}
+		const months = Object.keys(batches).sort((a, b) => b.localeCompare(a));
+		for (const month of months) await this.dataService.appendBatchToMonthlyReport(month, batches[month] || [], userId);
+		if (this.settings.dailyJournalEnabled) {
+			for (const date of Object.keys(dailyMap).sort()) await this.dataService.appendToDailyNote(date, dailyMap[date] || [], userId);
+		}
+		return months;
+	}
+
+	/** Recurring expenses of this month that are not in the ledger yet, checked in the review dialog first. */
+	async addRecurringForMonth(month = this.getCurrentYearMonth()) {
+		const stats = await this.dataService.getAllData();
+		const known = new Set(stats.flatMap(s => s.transactions.map(t => t.id)).filter((id): id is string => !!id));
+		const drafts = recurringDrafts(this.settings.recurring, month, known);
+		if (drafts.length === 0) {
+			new Notice(this.settings.recurring.some(r => r.enabled) ? `${month} 的固定支出都已入账。` : '还没有固定支出。可在设置 → 固定支出里添加。');
+			return;
+		}
+		const userId = this.settings.currentUser || this.settings.users[0]?.id || 'default';
+		const userName = this.settings.users.find(u => u.id === userId)?.name || '';
+		const reviewed = await new ReviewImportModal(this.app, drafts, userName, `${month} 固定支出`, {}, !!this.settings.paperStyle, '固定支出草稿').review();
+		if (!reviewed?.length) return;
+		await this.saveTransactions(reviewed, userId, row => row.id || '');
+		new Notice(`已入账 ${reviewed.length} 笔固定支出。`);
+		this.refreshDashboards();
+	}
+
 	private async syncHistoricalToDailyJournal() {
 		if (!this.settings.dailyJournalEnabled) {
-			new Notice('Daily Journal Append is disabled');
+			new Notice('请先在设置里打开“同步到日记”。');
 			return;
 		}
 		const notice = new Notice('开始同步历史账目到日记...', 0);
 		const stats = await this.dataService.getAllData();
-		const dailyMap: Record<string, any[]> = {};
+		const dailyMap: Record<string, TransactionRecord[]> = {};
 		let total = 0;
 		for (const s of stats) {
 			for (const tx of s.transactions) {
@@ -211,7 +262,7 @@ export default class AccountingPlugin extends Plugin {
 			await this.processMagicFile(folder);
 		} else if (folder) {
 			// It's a folder, iterate its children
-			const files = (folder as any).children || [];
+			const files = folder instanceof TFolder ? folder.children : [];
 			for (const file of files) {
 				if (file instanceof TFile) {
 					await this.processMagicFile(file);
@@ -268,44 +319,7 @@ export default class AccountingPlugin extends Plugin {
             if (!dataArray) return;
             const sourceHash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(content))), byte => byte.toString(16).padStart(2, '0')).join('');
 			if (dataArray && dataArray.length > 0) {
-				// Group by month to avoid multiple file writes for the same report
-				const batches: Record<string, any[]> = {};
-				const dailyMap: Record<string, any[]> = {};
-
-				for (const [index, data] of dataArray.entries()) {
-                    const yearMonth = data.date.slice(0, 7);
-                    const dateStr = data.date;
-                    const id = `${sourceHash}-${index}`;
-
-					if (!batches[yearMonth]) batches[yearMonth] = [];
-					if (!dailyMap[dateStr]) dailyMap[dateStr] = [];
-
-					const baseAmount = await this.fxService.convert(data.amount, data.currency, this.settings.baseCurrency, data.date);
-					const rate = await this.fxService.getExchangeRate(data.currency, this.settings.baseCurrency, data.date);
-
-					const batch = batches[yearMonth];
-					if (batch) {
-						batch.push({ ...data, id, baseAmount, rate });
-					}
-					const daily = dailyMap[dateStr];
-					if (daily) {
-						daily.push({ ...data, id, baseAmount, rate });
-					}
-				}
-
-				// Process each month batch (按月份降序处理)
-				const months = Object.keys(batches).sort((a, b) => b.localeCompare(a));
-				for (const month of months) {
-					const txs = batches[month] || [];
-					await this.dataService.appendBatchToMonthlyReport(month, txs, userId);
-				}
-				if (this.settings.dailyJournalEnabled) {
-					const dates = Object.keys(dailyMap).sort((a, b) => a.localeCompare(b));
-					for (const d of dates) {
-						const txs = dailyMap[d] || [];
-						await this.dataService.appendToDailyNote(d, txs, userId);
-					}
-				}
+				const months = await this.saveTransactions(dataArray, userId, (data, index) => `${sourceHash}-${index}`);
 
 				processingNotice.hide(); // Success: hide processing notice
 				new Notice(`成功处理 [${userName}] 的 ${dataArray.length} 笔交易。`);
@@ -479,14 +493,77 @@ export default class AccountingPlugin extends Plugin {
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData() as Partial<AccountingSettings>);
+		let data = await this.loadData() as Partial<AccountingSettings> | null;
+		const imported = !data ? await this.importFromOldId() : null;
+		if (imported) data = imported;
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, data);
+		const s = this.settings;
 		// Gemini 1.5 models were retired; move the old default to the current one.
-		if (this.settings.geminiModel === 'gemini-1.5-flash') this.settings.geminiModel = DEFAULT_SETTINGS.geminiModel;
+		if (s.geminiModel === 'gemini-1.5-flash') s.geminiModel = DEFAULT_SETTINGS.geminiModel;
+		if (!Array.isArray(s.recurring)) s.recurring = [];
+		if (typeof s.budgetText !== 'string') s.budgetText = '';
+		if (!Array.isArray(s.apiEndpoints)) s.apiEndpoints = [];
+		// The single OpenAI setting from early versions becomes the first endpoint.
+		if (s.apiEndpoints.length === 0 && s.openaiApiKey) {
+			s.apiEndpoints.push({ id: 'migrated-default', name: 'OpenAI', endpoint: s.openaiEndpoint || 'https://api.openai.com/v1', apiKey: s.openaiApiKey, model: s.openaiModel || 'gpt-4o', enabled: true });
+			s.openaiApiKey = '';
+		}
+		const movedKeys = this.moveKeysToSecretStorage();
+		if (imported || movedKeys) await this.saveData(this.settings);
+		if (imported) {
+			this.app.workspace.onLayoutReady(() => new Notice('AI Accounting：已导入旧版（AI Accounting Plugin）的设置。确认无误后可以在第三方插件里删除旧版。', 0));
+		}
+	}
+
+	/**
+	 * Until 0.4.0 the plugin id was "ai-accounting-plugin", so its settings live in
+	 * that folder. Read them once when this id has no settings yet.
+	 */
+	private async importFromOldId(): Promise<Partial<AccountingSettings> | null> {
+		if (this.manifest.id === OLD_PLUGIN_ID) return null;
+		const path = normalizePath(`${this.app.vault.configDir}/plugins/${OLD_PLUGIN_ID}/data.json`);
+		try {
+			if (!(await this.app.vault.adapter.exists(path))) return null;
+			const parsed: unknown = JSON.parse(await this.app.vault.adapter.read(path));
+			return parsed && typeof parsed === 'object' ? parsed : null;
+		} catch (error) {
+			console.error('AI Accounting: could not read settings of the old plugin id.', error);
+			return null;
+		}
+	}
+
+	/** Plain-text keys from before 0.5.0 move into Obsidian's secret storage; settings keep only the names. */
+	private moveKeysToSecretStorage(): boolean {
+		const storage = this.app.secretStorage;
+		const s = this.settings;
+		let moved = false;
+		const store = (preferred: string, fallback: string, key: string): string => {
+			const existing = storage.getSecret(preferred);
+			const name = !existing || existing === key ? preferred : fallback;
+			storage.setSecret(name, key);
+			moved = true;
+			return name;
+		};
+		if (s.geminiApiKey && !s.geminiSecretName) {
+			s.geminiSecretName = store('gemini-api-key', 'ai-accounting-gemini-api-key', s.geminiApiKey);
+			s.geminiApiKey = '';
+		}
+		for (const ep of s.apiEndpoints) {
+			if (!ep.apiKey || ep.apiKeySecret) continue;
+			const id = `ai-accounting-endpoint-${ep.id.toLowerCase().replace(/[^a-z0-9-]/g, '')}`;
+			ep.apiKeySecret = store(id, `${id}-2`, ep.apiKey);
+			ep.apiKey = '';
+		}
+		return moved;
+	}
+
+	secret(name: string): string {
+		return (name && this.app.secretStorage.getSecret(name)) || '';
 	}
 
 	async saveSettings() {
 		await this.saveData(this.settings);
 		// Refresh AI Service with new settings
-		this.aiService = new AIService(this.settings);
+		this.aiService = new AIService(this.settings, name => this.secret(name));
 	}
 }

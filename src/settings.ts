@@ -1,4 +1,5 @@
-import { App, PluginSettingTab, Setting, requestUrl } from "obsidian";
+import { App, PluginSettingTab, SecretComponent, Setting, requestUrl } from "obsidian";
+import { RecurringExpense, parseBudgets } from "./services/planning";
 import AccountingPlugin from "./main";
 
 export interface UserProfile {
@@ -14,7 +15,10 @@ export interface ApiEndpoint {
 	id: string;
 	name: string;        // 显示名称，如 "OpenAI", "本地 Ollama"
 	endpoint: string;    // 如 https://api.openai.com/v1
+	/** Before 0.5.0 the key was stored here; migrated into secret storage on load. */
 	apiKey: string;
+	/** Name of the secret in Obsidian's secret storage. */
+	apiKeySecret?: string;
 	model: string;
 	enabled: boolean;    // 是否启用（可快速禁用某个）
 }
@@ -22,6 +26,9 @@ export interface ApiEndpoint {
 export interface AccountingSettings {
 	baseCurrency: string;
 	aiProvider: 'gemini' | 'openai';
+	/** Name of the secret in Obsidian's secret storage that holds the Gemini key. */
+	geminiSecretName: string;
+	// Before 0.5.0; migrated into secret storage on load.
 	geminiApiKey: string;
 	geminiModel: string;
 	// 旧字段保留以兼容迁移
@@ -45,11 +52,16 @@ export interface AccountingSettings {
 	dailyJournalFilePattern: string; // e.g. YYYY-MM-DD
 	// Appearance
 	paperStyle: boolean;
+	// Planning
+	/** One budget per line, "分类 金额", in the report currency. */
+	budgetText: string;
+	recurring: RecurringExpense[];
 }
 
 export const DEFAULT_SETTINGS: AccountingSettings = {
 	baseCurrency: 'CNY',
 	aiProvider: 'gemini',
+	geminiSecretName: '',
 	geminiApiKey: '',
 	geminiModel: 'gemini-2.5-flash',
 	openaiApiKey: '',
@@ -68,7 +80,9 @@ export const DEFAULT_SETTINGS: AccountingSettings = {
 	dailyJournalEnabled: false,
 	dailyJournalFolderPath: 'Daily',
 	dailyJournalFilePattern: 'YYYY-MM-DD',
-	paperStyle: false
+	paperStyle: false,
+	budgetText: '',
+	recurring: []
 }
 
 export class AccountingSettingTab extends PluginSettingTab {
@@ -80,462 +94,292 @@ export class AccountingSettingTab extends PluginSettingTab {
 	}
 
 	display(): void {
-        this.renderSettingsBody();
-        const root = this.containerEl;
-        root.addClass('plugin-settings-workspace');
-        const nav = root.createDiv({ cls: 'plugin-settings-jump' });
-        const label = nav.createEl('label', { text: '快速定位' });
-        const select = label.createEl('select', { attr: { 'aria-label': '跳转到设置分组' } });
-        select.createEl('option', { text: '选择设置分组…', value: '' });
-        const sections = Array.from(root.querySelectorAll('h2'));
-        sections.forEach((section, index) => {
-            select.createEl('option', { text: section.textContent || '设置', value: String(index) });
-        });
-        select.addEventListener('change', () => {
-            if (select.value === '') return;
-            const target = sections[Number(select.value)];
-            if (target) {
-                target.setAttribute('tabindex', '-1');
-                target.scrollIntoView({ block: 'start' });
-                (target as HTMLElement).focus({ preventScroll: true });
-            }
-        });
-        root.prepend(nav);
-    }
-
-    renderSettingsBody(): void {
 		const { containerEl } = this;
 		containerEl.empty();
+		containerEl.addClass('aa-settings');
+		const s = this.plugin.settings;
+		const save = async () => { await this.plugin.saveSettings(); };
 
-		containerEl.createEl('h2', { text: '外观' });
-
-		new Setting(containerEl)
-			.setName('纸墨风格（Paper & ink style）')
-			.setDesc('纸色底、细墨线、衬线数字，强调色用暗红和青绿。关闭时跟随 Obsidian 主题。')
-			.addToggle(toggle => toggle
-				.setValue(!!this.plugin.settings.paperStyle)
-				.onChange(async (value) => {
-					this.plugin.settings.paperStyle = value;
-					await this.plugin.saveSettings();
-					this.plugin.refreshDashboards();
-				}));
-
-		containerEl.createEl('h2', { text: '币种与文件存储' });
-
+		// General settings come first, without a heading.
 		new Setting(containerEl)
 			.setName('报表币种')
-			.setDesc('报表金额统一换算为这个币种。')
+			.setDesc('报表金额统一换算为这个币种，预算也按它填写。')
 			.addText(text => text
 				.setPlaceholder('CNY')
-				.setValue(this.plugin.settings.baseCurrency)
-				.onChange(async (value) => {
-					this.plugin.settings.baseCurrency = value.toUpperCase();
-					await this.plugin.saveSettings();
-				}));
-
+				.setValue(s.baseCurrency)
+				.onChange(async value => { s.baseCurrency = value.trim().toUpperCase(); await save(); }));
 		new Setting(containerEl)
 			.setName('默认输入币种')
 			.setDesc('录入时没有注明币种，就使用这个默认值。')
 			.addText(text => text
 				.setPlaceholder('CNY')
-				.setValue(this.plugin.settings.defaultInputCurrency)
-				.onChange(async (value) => {
-					this.plugin.settings.defaultInputCurrency = value.toUpperCase();
-					await this.plugin.saveSettings();
-				}));
-
+				.setValue(s.defaultInputCurrency)
+				.onChange(async value => { s.defaultInputCurrency = value.trim().toUpperCase(); await save(); }));
 		new Setting(containerEl)
 			.setName('票据收件箱')
-			.setDesc('监测这个文件夹中的新图片和文本，自动识别并记账。')
+			.setDesc('放进这个文件夹的图片和文本会被识别，核对后入账。')
 			.addText(text => text
 				.setPlaceholder('Finances/Inbox')
-				.setValue(this.plugin.settings.magicFolderPath)
-				.onChange(async (value) => {
-					this.plugin.settings.magicFolderPath = value;
-					await this.plugin.saveSettings();
-				}));
-
+				.setValue(s.magicFolderPath)
+				.onChange(async value => { s.magicFolderPath = value.trim(); await save(); }));
 		new Setting(containerEl)
 			.setName('处理后归档文件夹')
-			.setDesc('处理完成后把原文件移入此文件夹。注意：留空会改为删除原文件。')
+			.setDesc('处理完成后把原文件移入此文件夹。留空则移到回收站。')
 			.addText(text => text
 				.setPlaceholder('Finances/Archive')
-				.setValue(this.plugin.settings.archiveFolderPath)
-				.onChange(async (value) => {
-					this.plugin.settings.archiveFolderPath = value;
-					await this.plugin.saveSettings();
-				}));
+				.setValue(s.archiveFolderPath)
+				.onChange(async value => { s.archiveFolderPath = value.trim(); await save(); }));
 
-		// Daily journal settings
-		containerEl.createEl('h2', { text: '日记同步' });
+		this.renderBudgets(containerEl);
+		this.renderRecurring(containerEl);
+		this.renderMembers(containerEl);
+		this.renderAi(containerEl);
+
+		new Setting(containerEl).setName('日记同步').setHeading();
 		new Setting(containerEl)
 			.setName('同步到日记')
 			.setDesc('把当天的交易记录追加到对应日记。')
 			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.dailyJournalEnabled)
-				.onChange(async (value) => {
-					this.plugin.settings.dailyJournalEnabled = value;
-					await this.plugin.saveSettings();
-				}));
-
+				.setValue(s.dailyJournalEnabled)
+				.onChange(async value => { s.dailyJournalEnabled = value; await save(); }));
 		new Setting(containerEl)
 			.setName('日记文件夹')
-			.setDesc('存放每日笔记的文件夹。')
 			.addText(text => text
 				.setPlaceholder('Daily')
-				.setValue(this.plugin.settings.dailyJournalFolderPath)
-				.onChange(async (value) => {
-					this.plugin.settings.dailyJournalFolderPath = value;
-					await this.plugin.saveSettings();
-				}));
-
+				.setValue(s.dailyJournalFolderPath)
+				.onChange(async value => { s.dailyJournalFolderPath = value.trim(); await save(); }));
 		new Setting(containerEl)
 			.setName('日记文件名格式')
-			.setDesc('使用 YYYY、MM、DD 表示年、月、日。')
+			.setDesc('用 YYYY、MM、DD 表示年、月、日。')
 			.addText(text => text
 				.setPlaceholder('YYYY-MM-DD')
-				.setValue(this.plugin.settings.dailyJournalFilePattern)
-				.onChange(async (value) => {
-					this.plugin.settings.dailyJournalFilePattern = value;
-					await this.plugin.saveSettings();
-				}));
+				.setValue(s.dailyJournalFilePattern)
+				.onChange(async value => { s.dailyJournalFilePattern = value.trim(); await save(); }));
 
-		// Multi-user Settings
-		containerEl.createEl('h2', { text: '成员与账本' });
-		containerEl.createEl('p', { text: '为每位成员指定独立账本文件夹。列表中的第一位成员为默认成员。' });
-
-		this.plugin.settings.users.forEach((user, index) => {
-			const div = containerEl.createEl('div', { cls: 'user-setting-row', attr: { style: 'display: flex; gap: 10px; margin-bottom: 10px; align-items: center;' } });
-
-			// Name
-			new Setting(div)
-				.setName(`User ${index + 1}`)
-				.setClass('user-setting-item')
-				.addText(text => text
-					.setPlaceholder('Name')
-					.setValue(user.name)
-					.onChange(async (value) => {
-						user.name = value;
-						await this.plugin.saveSettings();
-					}));
-
-			// Folder (Raw input for now)
-			const folderInput = div.createEl('input', { type: 'text', placeholder: 'Folder Path' });
-			folderInput.value = user.folder;
-			folderInput.onchange = async () => {
-				user.folder = folderInput.value;
-				await this.plugin.saveSettings();
-			};
-
-			// Color
-			const colorInput = div.createEl('input', { type: 'color' });
-			colorInput.value = user.color || '#cccccc';
-			colorInput.onchange = async () => {
-				user.color = colorInput.value;
-				await this.plugin.saveSettings();
-			};
-
-			// Inbox Folder (Optional)
-			const inboxInput = div.createEl('input', { type: 'text', placeholder: 'Inbox (Optional)' });
-			inboxInput.value = user.inboxFolder || '';
-			inboxInput.onchange = async () => {
-				user.inboxFolder = inboxInput.value;
-				await this.plugin.saveSettings();
-			};
-
-			// Delete Button
-			if (this.plugin.settings.users.length > 1) {
-				const btn = div.createEl('button', { text: 'X' });
-				btn.onclick = async () => {
-					this.plugin.settings.users.splice(index, 1);
-					// Reset current user if deleted
-					const firstUser = this.plugin.settings.users[0];
-					if (this.plugin.settings.currentUser === user.id && firstUser) {
-						this.plugin.settings.currentUser = firstUser.id;
-					}
-					await this.plugin.saveSettings();
-					this.display();
-				};
-			}
-		});
-
+		new Setting(containerEl).setName('外观').setHeading();
 		new Setting(containerEl)
-			.addButton(btn => btn
-				.setButtonText('Add User')
-				.onClick(async () => {
-					this.plugin.settings.users.push({
-						id: Date.now().toString(),
-						name: 'New User',
-						folder: 'Finances/NewUser',
-						color: '#ff9f40'
-					});
-					await this.plugin.saveSettings();
-					this.display();
+			.setName('纸墨风格')
+			.setDesc('纸色底、细墨线、衬线数字。关闭时跟随 Obsidian 主题。')
+			.addToggle(toggle => toggle
+				.setValue(!!s.paperStyle)
+				.onChange(async value => {
+					s.paperStyle = value;
+					await save();
+					this.plugin.refreshDashboards();
 				}));
-
-
-		containerEl.createEl('h2', { text: 'AI 识别与模型' });
-
-		new Setting(containerEl)
-			.setName('AI Provider')
-			.setDesc('Choose your AI engine.')
-			.addDropdown(dropdown => dropdown
-				.addOption('gemini', 'Google Gemini')
-				.addOption('openai', 'OpenAI / Custom (支持多 Endpoint Fallback)')
-				.setValue(this.plugin.settings.aiProvider)
-				.onChange(async (value: 'gemini' | 'openai') => {
-					this.plugin.settings.aiProvider = value;
-					await this.plugin.saveSettings();
-					this.display();
-				}));
-
-		if (this.plugin.settings.aiProvider === 'gemini') {
-			new Setting(containerEl)
-				.setName('Gemini API Key')
-				.setDesc('Get your key from Google AI Studio.')
-				.addText(text => {
-					text.inputEl.type = 'password';
-					text.setPlaceholder('Enter Gemini Key')
-					.setValue(this.plugin.settings.geminiApiKey)
-					.onChange(async (value) => {
-						this.plugin.settings.geminiApiKey = value;
-						await this.plugin.saveSettings();
-					});
-				});
-
-			new Setting(containerEl)
-				.setName('Gemini Model')
-				.setDesc('e.g., gemini-1.5-flash, gemini-1.5-pro.')
-				.addText(text => text
-					.setPlaceholder('gemini-1.5-flash')
-					.setValue(this.plugin.settings.geminiModel)
-					.onChange(async (value) => {
-						this.plugin.settings.geminiModel = value;
-						await this.plugin.saveSettings();
-					}));
-		} else {
-			// ── OpenAI 多 Endpoint 管理 ──
-			this.renderApiEndpointsSection(containerEl);
-		}
 	}
 
-	/**
-	 * 渲染多 API Endpoint 管理区域
-	 * 支持动态增删，拖拽排序（通过上下按钮），以及启用/禁用单个 endpoint
-	 */
-	private renderApiEndpointsSection(containerEl: HTMLElement): void {
+	private renderBudgets(containerEl: HTMLElement) {
 		const s = this.plugin.settings;
-
-		// 首次使用时，将旧的单一配置迁移进列表
-		if (s.apiEndpoints.length === 0 && (s.openaiApiKey || s.openaiEndpoint)) {
-			s.apiEndpoints.push({
-				id: 'migrated-default',
-				name: 'OpenAI (迁移)',
-				endpoint: s.openaiEndpoint || 'https://api.openai.com/v1',
-				apiKey: s.openaiApiKey || '',
-				model: s.openaiModel || 'gpt-4o',
-				enabled: true,
+		new Setting(containerEl).setName('月度预算').setHeading();
+		const parsed = () => {
+			const budgets = parseBudgets(s.budgetText);
+			const count = Object.keys(budgets.categories).length;
+			return count === 0 && !budgets.total ? '还没有设置预算。' : `已识别 ${count} 个分类${budgets.total ? '和总预算' : ''}。`;
+		};
+		const setting = new Setting(containerEl)
+			.setName('预算')
+			.setDesc(parsed())
+			.addTextArea(text => {
+				text.inputEl.rows = 5;
+				text.setPlaceholder('总计 150000\n餐饮 40000\n交通 12000')
+					.setValue(s.budgetText)
+					.onChange(async value => {
+						s.budgetText = value;
+						setting.setDesc(parsed());
+						await this.plugin.saveSettings();
+						this.plugin.refreshDashboards();
+					});
 			});
-			void this.plugin.saveSettings();
-		}
+		containerEl.createDiv({ cls: 'setting-item-description aa-settings-note', text: '每行一个一级分类和金额（报表币种），写“总计”设整月总预算。账本页会显示本月用了多少，超过 80% 变橙色，超出变红色。' });
+	}
 
-		const headerSetting = new Setting(containerEl)
-			.setName('API Endpoints（按顺序 Fallback）')
-			.setDesc('调用时按顺序尝试，一个失败立即切换到下一个。排在前面的优先级更高。');
+	private renderRecurring(containerEl: HTMLElement) {
+		const s = this.plugin.settings;
+		new Setting(containerEl)
+			.setName('固定支出')
+			.setHeading()
+			.addExtraButton(button => button
+				.setIcon('plus')
+				.setTooltip('添加固定支出')
+				.onClick(async () => {
+					s.recurring.push({ id: Date.now().toString(36), description: '', category: '', amount: 0, currency: s.defaultInputCurrency, paymentMethod: '', day: 1, enabled: true });
+					await this.plugin.saveSettings();
+					this.display();
+				}));
+		containerEl.createDiv({ cls: 'setting-item-description aa-settings-note', text: '房租、话费、订阅等每月都有的支出。运行命令“添加本月固定支出”或在账本页点按钮，核对后一次入账；同一个月不会重复。' });
+		if (s.recurring.length === 0) return;
+		const list = containerEl.createDiv({ cls: 'aa-settings-list' });
+		s.recurring.forEach((item, index) => {
+			const card = list.createDiv({ cls: `aa-settings-card${item.enabled ? '' : ' is-off'}` });
+			new Setting(card)
+				.setName(item.description || `固定支出 ${index + 1}`)
+				.setDesc(item.amount > 0 ? `每月 ${item.day} 日 · ${item.amount} ${item.currency}` : '填写金额后生效')
+				.addToggle(toggle => toggle
+					.setTooltip('启用')
+					.setValue(item.enabled)
+					.onChange(async value => { item.enabled = value; card.toggleClass('is-off', !value); await this.plugin.saveSettings(); }))
+				.addExtraButton(button => button
+					.setIcon('trash-2')
+					.setTooltip('删除')
+					.onClick(async () => { s.recurring.splice(index, 1); await this.plugin.saveSettings(); this.display(); }));
+			const fields = new Setting(card).setClass('aa-settings-fields');
+			fields.addText(text => text.setPlaceholder('内容，如 房租').setValue(item.description).onChange(async v => { item.description = v.trim(); await this.plugin.saveSettings(); }));
+			fields.addText(text => text.setPlaceholder('分类，如 住房 / 房租').setValue(item.category).onChange(async v => { item.category = v.trim(); await this.plugin.saveSettings(); }));
+			fields.addText(text => {
+				text.inputEl.type = 'number';
+				text.inputEl.min = '0';
+				text.setPlaceholder('金额').setValue(item.amount ? String(item.amount) : '').onChange(async v => { item.amount = Math.max(0, Number(v) || 0); await this.plugin.saveSettings(); });
+			});
+			fields.addText(text => text.setPlaceholder('币种').setValue(item.currency).onChange(async v => { item.currency = v.trim().toUpperCase(); await this.plugin.saveSettings(); }));
+			fields.addText(text => {
+				text.inputEl.type = 'number';
+				text.inputEl.min = '1';
+				text.inputEl.max = '31';
+				text.setPlaceholder('扣款日').setValue(String(item.day)).onChange(async v => { item.day = Math.min(31, Math.max(1, Math.floor(Number(v)) || 1)); await this.plugin.saveSettings(); });
+			});
+			fields.addText(text => text.setPlaceholder('支付方式').setValue(item.paymentMethod).onChange(async v => { item.paymentMethod = v.trim(); await this.plugin.saveSettings(); }));
+			// Placeholders disappear once a field is filled, so each input also carries its name.
+			['内容', '分类', '金额', '币种', '每月扣款日', '支付方式'].forEach((label, i) => {
+				const input = fields.controlEl.querySelectorAll('input')[i];
+				input?.setAttrs({ 'aria-label': label, title: label });
+			});
+		});
+	}
 
-		headerSetting.addButton(btn => btn
-			.setButtonText('＋ 新增 Endpoint')
-			.setCta()
-			.onClick(async () => {
-				s.apiEndpoints.push({
-					id: Date.now().toString(),
-					name: '新 Endpoint',
-					endpoint: 'https://api.openai.com/v1',
-					apiKey: '',
-					model: 'gpt-4o',
-					enabled: true,
-				});
+	private renderMembers(containerEl: HTMLElement) {
+		const s = this.plugin.settings;
+		new Setting(containerEl)
+			.setName('成员与账本')
+			.setHeading()
+			.addExtraButton(button => button
+				.setIcon('plus')
+				.setTooltip('添加成员')
+				.onClick(async () => {
+					s.users.push({ id: Date.now().toString(), name: '新成员', folder: 'Finances/New', color: '#ff9f40' });
+					await this.plugin.saveSettings();
+					this.display();
+				}));
+		containerEl.createDiv({ cls: 'setting-item-description aa-settings-note', text: '每位成员有自己的账本文件夹，可另设专用收件箱。第一位是默认成员。' });
+		s.users.forEach((user, index) => {
+			const row = new Setting(containerEl)
+				.setClass('aa-member-row')
+				.setName(user.name || `成员 ${index + 1}`)
+				.addColorPicker(picker => picker.setValue(user.color || '#cccccc').onChange(async v => { user.color = v; await this.plugin.saveSettings(); }))
+				.addText(text => text.setPlaceholder('名字').setValue(user.name).onChange(async v => { user.name = v; await this.plugin.saveSettings(); }))
+				.addText(text => text.setPlaceholder('账本文件夹').setValue(user.folder).onChange(async v => { user.folder = v.trim(); await this.plugin.saveSettings(); }))
+				.addText(text => text.setPlaceholder('专用收件箱（可选）').setValue(user.inboxFolder || '').onChange(async v => { user.inboxFolder = v.trim(); await this.plugin.saveSettings(); }));
+			if (s.users.length > 1) {
+				row.addExtraButton(button => button
+					.setIcon('trash-2')
+					.setTooltip('删除成员（账本文件保留）')
+					.onClick(async () => {
+						s.users.splice(index, 1);
+						const first = s.users[0];
+						if (s.currentUser === user.id && first) s.currentUser = first.id;
+						await this.plugin.saveSettings();
+						this.display();
+					}));
+			}
+		});
+	}
+
+	private secretSetting(containerEl: HTMLElement, name: string, desc: string, value: string, onChange: (value: string) => Promise<void>) {
+		return new Setting(containerEl)
+			.setName(name)
+			.setDesc(desc)
+			.addComponent(el => new SecretComponent(this.app, el)
+				.setValue(value)
+				.onChange(async v => { await onChange(v ?? ''); }));
+	}
+
+	private renderAi(containerEl: HTMLElement) {
+		const s = this.plugin.settings;
+		new Setting(containerEl).setName('AI 识别').setHeading();
+		new Setting(containerEl)
+			.setName('服务')
+			.setDesc('票据和文本由哪个 AI 读取。只在你处理票据时发送内容。')
+			.addDropdown(dropdown => dropdown
+				.addOption('gemini', 'Google Gemini')
+				.addOption('openai', 'OpenAI 兼容接口（可设多个备用）')
+				.setValue(s.aiProvider)
+				.onChange(async value => {
+					s.aiProvider = value === 'openai' ? 'openai' : 'gemini';
+					await this.plugin.saveSettings();
+					this.display();
+				}));
+
+		if (s.aiProvider === 'gemini') {
+			this.secretSetting(containerEl, 'Gemini API 密钥', '选择或新建一个存在 Obsidian 密钥库里的密钥，其他插件也能共用。可在 Google AI Studio 获取。', s.geminiSecretName, async v => {
+				s.geminiSecretName = v;
 				await this.plugin.saveSettings();
-				this.display();
-			}));
-
-		const endpointsContainer = containerEl.createDiv({ cls: 'api-endpoints-list' });
-
-		if (s.apiEndpoints.length === 0) {
-			endpointsContainer.createEl('p', {
-				text: '暂无 Endpoint，点击上方按钮添加。',
-				attr: { style: 'color: var(--text-muted); font-size: 0.85em; margin: 8px 0;' }
 			});
+			new Setting(containerEl)
+				.setName('Gemini 模型')
+				.addText(text => text
+					.setPlaceholder('gemini-2.5-flash')
+					.setValue(s.geminiModel)
+					.onChange(async value => { s.geminiModel = value.trim() || DEFAULT_SETTINGS.geminiModel; await this.plugin.saveSettings(); }));
 			return;
 		}
 
+		new Setting(containerEl)
+			.setName('接口列表')
+			.setDesc('按顺序尝试，前一个失败就换下一个。')
+			.addButton(button => button
+				.setButtonText('添加接口')
+				.onClick(async () => {
+					s.apiEndpoints.push({ id: Date.now().toString(36), name: '新接口', endpoint: 'https://api.openai.com/v1', apiKey: '', model: 'gpt-4o', enabled: true });
+					await this.plugin.saveSettings();
+					this.display();
+				}));
+		const list = containerEl.createDiv({ cls: 'aa-settings-list' });
+		if (s.apiEndpoints.length === 0) list.createDiv({ cls: 'setting-item-description', text: '还没有接口。' });
 		s.apiEndpoints.forEach((ep, index) => {
-			const card = endpointsContainer.createDiv({
-				cls: 'api-endpoint-card',
-				attr: {
-					style: [
-						'border: 1px solid var(--background-modifier-border)',
-						'border-radius: 8px',
-						'padding: 12px 14px',
-						'margin-bottom: 10px',
-						`opacity: ${ep.enabled ? '1' : '0.5'}`,
-						'transition: opacity 0.2s',
-					].join('; ')
-				}
-			});
-
-			// ── 标题行：序号 + 启用开关 + 上下移 + 删除 ──
-			const titleRow = card.createDiv({
-				attr: { style: 'display: flex; align-items: center; gap: 8px; margin-bottom: 10px;' }
-			});
-			titleRow.createEl('span', {
-				text: `#${index + 1}`,
-				attr: {
-					style: 'font-weight: 600; color: var(--text-accent); min-width: 24px; font-size: 0.9em;'
-				}
-			});
-
-			// 名称输入
-			const nameInput = titleRow.createEl('input', {
-				type: 'text',
-				attr: {
-					placeholder: '显示名称（如 OpenAI / 本地 Ollama）',
-					style: 'flex: 1; font-weight: 500;'
-				}
-			}) as HTMLInputElement;
-			nameInput.value = ep.name;
-			nameInput.onchange = async () => { ep.name = nameInput.value; await this.plugin.saveSettings(); };
-
-			// 启用开关
-			const toggleLabel = titleRow.createEl('label', {
-				attr: { style: 'display: flex; align-items: center; gap: 4px; cursor: pointer; font-size: 0.82em; color: var(--text-muted);' }
-			});
-			const toggleInput = toggleLabel.createEl('input', { type: 'checkbox' }) as HTMLInputElement;
-			toggleInput.checked = ep.enabled;
-			toggleLabel.appendText(ep.enabled ? '已启用' : '已禁用');
-			toggleInput.onchange = async () => {
-				ep.enabled = toggleInput.checked;
-				toggleLabel.lastChild!.textContent = ep.enabled ? '已启用' : '已禁用';
-				card.style.opacity = ep.enabled ? '1' : '0.5';
-				await this.plugin.saveSettings();
-			};
-
-			// 上移
-			const upBtn = titleRow.createEl('button', { text: '↑', attr: { title: '上移（优先级+1）' } });
-			upBtn.disabled = index === 0;
-			upBtn.onclick = async () => {
-				if (index === 0) return;
-				const tmp = s.apiEndpoints[index - 1]!;
-				s.apiEndpoints[index - 1] = s.apiEndpoints[index]!;
-				s.apiEndpoints[index] = tmp;
+			const card = list.createDiv({ cls: `aa-settings-card${ep.enabled ? '' : ' is-off'}` });
+			const move = async (to: number) => {
+				const [item] = s.apiEndpoints.splice(index, 1);
+				if (item) s.apiEndpoints.splice(to, 0, item);
 				await this.plugin.saveSettings();
 				this.display();
 			};
-
-			// 下移
-			const downBtn = titleRow.createEl('button', { text: '↓', attr: { title: '下移（优先级-1）' } });
-			downBtn.disabled = index === s.apiEndpoints.length - 1;
-			downBtn.onclick = async () => {
-				if (index === s.apiEndpoints.length - 1) return;
-				const tmp = s.apiEndpoints[index + 1]!;
-				s.apiEndpoints[index + 1] = s.apiEndpoints[index]!;
-				s.apiEndpoints[index] = tmp;
-				await this.plugin.saveSettings();
-				this.display();
-			};
-
-			// 删除
-			const delBtn = titleRow.createEl('button', {
-				text: '✕',
-				attr: { title: '删除此 Endpoint', style: 'color: var(--text-error);' }
-			});
-			delBtn.onclick = async () => {
-				s.apiEndpoints.splice(index, 1);
-				await this.plugin.saveSettings();
-				this.display();
-			};
-
-			// ── 详细字段行 ──
-			const fieldsGrid = card.createDiv({
-				attr: { style: 'display: grid; grid-template-columns: 1fr 1fr; gap: 8px;' }
-			});
-
-			const makeField = (parent: HTMLElement, label: string, placeholder: string, value: string, isSecret = false) => {
-				const wrap = parent.createDiv();
-				wrap.createEl('label', {
-					text: label,
-					attr: { style: 'font-size: 0.78em; color: var(--text-muted); display: block; margin-bottom: 3px;' }
-				});
-				const inp = wrap.createEl('input', {
-					type: isSecret ? 'password' : 'text',
-					attr: { placeholder, style: 'width: 100%; box-sizing: border-box;' }
-				}) as HTMLInputElement;
-				inp.value = value;
-				return inp;
-			};
-
-			// Endpoint URL（跨两列）
-			const endpointWrap = card.createDiv({ attr: { style: 'margin-bottom: 8px;' } });
-			endpointWrap.createEl('label', {
-				text: 'Endpoint URL',
-				attr: { style: 'font-size: 0.78em; color: var(--text-muted); display: block; margin-bottom: 3px;' }
-			});
-			const endpointInput = endpointWrap.createEl('input', {
-				type: 'text',
-				attr: { placeholder: 'https://api.openai.com/v1', style: 'width: 100%; box-sizing: border-box;' }
-			}) as HTMLInputElement;
-			endpointInput.value = ep.endpoint;
-			endpointInput.onchange = async () => { ep.endpoint = endpointInput.value.trim(); await this.plugin.saveSettings(); };
-
-			// API Key & Model 两列
-			const apiKeyInput = makeField(fieldsGrid, 'API Key', 'sk-... 或留空', ep.apiKey, true);
-			apiKeyInput.onchange = async () => { ep.apiKey = apiKeyInput.value; await this.plugin.saveSettings(); };
-
-			const modelInput = makeField(fieldsGrid, 'Model', 'gpt-4o / llama3 / ...', ep.model);
-			modelInput.onchange = async () => { ep.model = modelInput.value.trim(); await this.plugin.saveSettings(); };
-
-			// ── 底部：测试按钮 + 状态 ──
-			const footerRow = card.createDiv({
-				attr: { style: 'display: flex; align-items: center; gap: 8px; margin-top: 10px;' }
-			});
-			const statusSpan = footerRow.createEl('span', {
-				attr: { style: 'font-size: 0.8em; color: var(--text-muted); flex: 1;' }
-			});
-			const testBtn = footerRow.createEl('button', { text: '🔍 测试连接' });
-			testBtn.onclick = async () => {
-				testBtn.disabled = true;
-				statusSpan.textContent = '测试中...';
-				statusSpan.style.color = 'var(--text-muted)';
+			new Setting(card)
+				.setName(`${index + 1}. ${ep.name || ep.endpoint}`)
+				.addToggle(toggle => toggle
+					.setTooltip('启用')
+					.setValue(ep.enabled)
+					.onChange(async value => { ep.enabled = value; card.toggleClass('is-off', !value); await this.plugin.saveSettings(); }))
+				.addExtraButton(button => button.setIcon('arrow-up').setTooltip('提前').setDisabled(index === 0).onClick(() => void move(index - 1)))
+				.addExtraButton(button => button.setIcon('arrow-down').setTooltip('延后').setDisabled(index === s.apiEndpoints.length - 1).onClick(() => void move(index + 1)))
+				.addExtraButton(button => button.setIcon('trash-2').setTooltip('删除').onClick(async () => {
+					s.apiEndpoints.splice(index, 1);
+					await this.plugin.saveSettings();
+					this.display();
+				}));
+			new Setting(card).setName('名称').addText(text => text.setPlaceholder('如 OpenAI、本地 Ollama').setValue(ep.name).onChange(async v => { ep.name = v; await this.plugin.saveSettings(); }));
+			new Setting(card).setName('地址').addText(text => text.setPlaceholder('https://api.openai.com/v1').setValue(ep.endpoint).onChange(async v => { ep.endpoint = v.trim(); await this.plugin.saveSettings(); }));
+			new Setting(card).setName('模型').addText(text => text.setPlaceholder('gpt-4o').setValue(ep.model).onChange(async v => { ep.model = v.trim(); await this.plugin.saveSettings(); }));
+			this.secretSetting(card, '密钥', '本地模型可以不填。', ep.apiKeySecret || '', async v => { ep.apiKeySecret = v; await this.plugin.saveSettings(); });
+			const test = new Setting(card).setName('测试连接');
+			test.addButton(button => button.setButtonText('测试').onClick(async () => {
+				button.setDisabled(true);
+				test.setDesc('测试中…');
 				try {
-					let url = (endpointInput.value || ep.endpoint).trim();
-					if (url.endsWith('/')) url = url.slice(0, -1);
-					const key = apiKeyInput.value || ep.apiKey;
-					const model = modelInput.value || ep.model || 'gpt-4o';
+					const key = ep.apiKeySecret ? this.app.secretStorage.getSecret(ep.apiKeySecret) ?? '' : ep.apiKey;
 					const resp = await requestUrl({
-						url: `${url}/chat/completions`,
+						url: `${ep.endpoint.replace(/\/+$/, '')}/chat/completions`,
 						method: 'POST',
 						headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
-						body: JSON.stringify({
-							model,
-							messages: [{ role: 'user', content: 'Reply with just: ok' }],
-							max_tokens: 5,
-						}),
-						throw: false,
+						body: JSON.stringify({ model: ep.model || 'gpt-4o', messages: [{ role: 'user', content: 'Reply with just: ok' }], max_tokens: 5 }),
+						throw: false
 					});
-					if (resp.status === 200) {
-						statusSpan.textContent = '✅ 连接成功';
-						statusSpan.style.color = 'var(--color-green)';
-					} else {
-						statusSpan.textContent = `❌ 失败 (${resp.status})`;
-						statusSpan.style.color = 'var(--color-red)';
-					}
-				} catch (e) {
-					statusSpan.textContent = `❌ 网络错误: ${(e as Error).message}`;
-					statusSpan.style.color = 'var(--color-red)';
+					test.setDesc(resp.status === 200 ? '连接成功。' : `失败（HTTP ${resp.status}）。`);
+				} catch (error) {
+					test.setDesc(`网络错误：${(error as Error).message}`);
 				} finally {
-					testBtn.disabled = false;
+					button.setDisabled(false);
 				}
-			};
+			}));
 		});
 	}
 }

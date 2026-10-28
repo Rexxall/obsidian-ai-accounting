@@ -243,7 +243,7 @@ export class DataService {
             return content;
         });
         this.fileCache.delete(file.path);
-        await this.app.fileManager.processFrontMatter(file, fm => {
+        await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
             fm.total_expense = Number(stats.total.toFixed(2));
             fm.transaction_count = stats.transactions.length;
         });
@@ -302,7 +302,7 @@ export class DataService {
 
         return section;
     }
-    public async appendBatchToMonthlyReport(yearMonth: string, transactions: any[], userId?: string) {
+    public async appendBatchToMonthlyReport(yearMonth: string, transactions: TransactionRecord[], userId?: string) {
         // Determine folder path
         let folderPath = this.settings.financeFolderPath;
         // Default to current user if not specified? Or strictly follow logic.
@@ -347,7 +347,7 @@ export class DataService {
         }
     }
 
-    public async appendToDailyNote(date: string, transactions: any[], userId?: string) {
+    public async appendToDailyNote(date: string, transactions: TransactionRecord[], userId?: string) {
         if (!this.settings.dailyJournalEnabled) return;
         const folderPath = this.settings.dailyJournalFolderPath;
         if (!folderPath) return;

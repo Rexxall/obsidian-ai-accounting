@@ -22,7 +22,7 @@ export class ReviewImportModal extends Modal {
     private resolve: (value: TransactionData[] | null) => void = () => {};
     private accepted = false;
     private draft: TransactionData[];
-    constructor(app: App, rows: TransactionData[], private owner: string, private source: string, private preview: ReviewSource = {}, private paper = false) {
+    constructor(app: App, rows: TransactionData[], private owner: string, private source: string, private preview: ReviewSource = {}, private paper = false, private draftLabel = 'AI 已填草稿') {
         super(app);
         this.draft = rows.map(row => ({ ...row }));
     }
@@ -33,7 +33,7 @@ export class ReviewImportModal extends Modal {
         this.modalEl.addClass('aa-modal', 'aa-review-modal');
         this.modalEl.toggleClass('rk-paper', this.paper);
         this.setTitle('核对后入账');
-        this.contentEl.createDiv({ cls: 'rk-modal-kicker', text: `AI 已填草稿 · 还没有入账 · ${this.owner} · ${this.source} · ${this.draft.length} 笔` });
+        this.contentEl.createDiv({ cls: 'rk-modal-kicker', text: [this.draftLabel, '还没有入账', this.owner, this.source, `${this.draft.length} 笔`].filter(Boolean).join(' · ') });
 
         const body = this.contentEl.createDiv({ cls: 'aa-review-body' });
         if (this.preview.imageSrc || this.preview.text) {

@@ -1,6 +1,6 @@
 {
   "name": "obsidian-ai-accounting",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Review AI-extracted expenses and maintain multi-currency Markdown ledgers in Obsidian.",
   "main": "main.js",
   "type": "module",
@@ -27,7 +27,7 @@
   },
   "dependencies": {
     "chart.js": "^4.5.1",
-    "obsidian": "latest"
+    "obsidian": "^1.14.4"
   },
   "author": "Rexxall"
 }

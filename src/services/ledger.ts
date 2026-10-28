@@ -28,7 +28,7 @@ export function validateTransaction(tx: {date: string; amount: number; currency:
     if (tx.rate !== undefined && (!Number.isFinite(tx.rate) || tx.rate <= 0)) throw new Error('汇率必须大于零。');
     if (tx.baseAmount !== undefined && !Number.isFinite(tx.baseAmount)) throw new Error('本币金额无效。');
 }
-export function renderTransaction(tx: any): string {
+export function renderTransaction(tx: { id?: string; date: string; description: string; category: string; amount: number; currency: string; rate: number; baseAmount: number; paymentMethod?: string }): string {
     validateTransaction(tx);
     const id = tx.id || newRecordId();
     if (!/^[a-zA-Z0-9_-]+$/.test(id)) throw new Error('交易标识无效。');

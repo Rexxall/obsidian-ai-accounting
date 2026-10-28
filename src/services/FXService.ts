@@ -23,7 +23,7 @@ export class FXService {
         if (await this.app.vault.adapter.exists(this.CACHE_FILE)) {
             try {
                 const data = await this.app.vault.adapter.read(this.CACHE_FILE);
-                const json = JSON.parse(data);
+                const json = JSON.parse(data) as Record<string, { rate: number; timestamp: number }>;
                 this.cache = new Map(Object.entries(json));
             } catch (e) {
                 console.error('Failed to load FX cache', e);
@@ -53,7 +53,7 @@ export class FXService {
         const isValid = cached && (isHistorical || (Date.now() - cached.timestamp < this.CACHE_DURATION));
 
         if (isValid) {
-            return cached!.rate;
+            return cached.rate;
         }
 
         try {

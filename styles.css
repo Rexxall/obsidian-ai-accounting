@@ -465,7 +465,9 @@
 
 .ai-accounting-dashboard-container .aa-ledger-aside { display: flex; flex-direction: column; gap: 14px; }
 
-@media (max-width: 900px) {
+/* Follow the pane's width, not the window's: the dashboard often sits in a narrow sidebar. */
+.aa-view-content { container-type: inline-size; }
+@container (max-width: 760px) {
 	.ai-accounting-dashboard-container .aa-ledger-layout { grid-template-columns: minmax(0, 1fr); }
 }
 
@@ -642,31 +644,30 @@
 	.ai-accounting-dashboard-container [data-hide="mobile"] { display: none; }
 }
 
-/* Settings */
-.plugin-settings-workspace .plugin-settings-jump {
-	position: sticky;
-	top: 0;
-	z-index: 2;
-	margin-bottom: 16px;
-	padding: 10px 0;
-	border-bottom: 1px solid var(--background-modifier-border);
-	background: var(--background-primary);
-}
-
-.plugin-settings-workspace .plugin-settings-jump label { display: flex; align-items: center; gap: 12px; color: var(--text-muted); font-size: var(--font-ui-small); }
-.plugin-settings-workspace .plugin-settings-jump select { flex: 1; max-width: 360px; }
-.plugin-settings-workspace :is(h2, h3, .setting-item-name) { scroll-margin-top: 76px; }
-.plugin-settings-workspace .api-endpoints-list { display: flex; flex-direction: column; gap: 10px; }
-
-.plugin-settings-workspace .api-endpoint-card,
-.plugin-settings-workspace .user-setting-row {
-	padding: 4px 14px;
-	border: 1px solid var(--background-modifier-border);
-	border-radius: var(--radius-m);
-}
-
 /* Grouped by day: the day header already shows the date */
 .ai-accounting-dashboard-container .aa-table.is-grouped .date-col { display: none; }
 
 /* Edit dialog: delete on the left, save on the right */
 .aa-modal .aa-edit-buttons { display: flex; justify-content: space-between; margin-top: 20px; }
+
+/* Monthly budget card */
+.ai-accounting-dashboard-container .aa-budget { display: grid; gap: var(--size-4-2); }
+.ai-accounting-dashboard-container .aa-budget-row { display: grid; gap: 4px; font-size: var(--font-ui-small); }
+.ai-accounting-dashboard-container .aa-budget-row.is-total { font-weight: 600; padding-bottom: var(--size-4-1); border-bottom: 1px solid var(--rk-hair); }
+.ai-accounting-dashboard-container .aa-budget-amt.is-warn { color: var(--rk-warn); }
+.ai-accounting-dashboard-container .aa-budget-amt.is-danger,
+.ai-accounting-dashboard-container .aa-budget-over { color: var(--rk-danger); }
+
+/* Settings: lists of members, recurring expenses and endpoints */
+.aa-settings .aa-settings-note { margin: 0 0 var(--size-4-2); }
+.aa-settings .aa-settings-list { display: grid; gap: var(--size-4-2); margin-bottom: var(--size-4-4); }
+.aa-settings .aa-settings-card { border-radius: var(--radius-m); }
+.aa-settings .aa-settings-card.is-off { opacity: 0.55; }
+.aa-settings .aa-settings-card .setting-item:first-child { border-top: none; }
+.aa-settings .aa-settings-fields .setting-item-info { display: none; }
+.aa-settings .aa-settings-fields .setting-item-control { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--size-4-2); width: 100%; }
+.aa-settings .aa-settings-fields input { width: 100%; min-width: 0; }
+.aa-settings .aa-member-row .setting-item-control input[type="text"] { width: 9em; }
+@media (max-width: 600px) {
+	.aa-settings .aa-settings-fields .setting-item-control { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

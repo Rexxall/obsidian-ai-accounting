@@ -4,6 +4,7 @@ import { DataService, MonthlyStats, TransactionRecord } from './services/DataSer
 import AccountingPlugin from './main';
 import { RenameCategoryModal } from './modals/RenameCategoryModal';
 import { EditTransactionModal } from './modals/EditTransactionModal';
+import { budgetUsage, parseBudgets } from './services/planning';
 
 Chart.register(...registerables);
 
@@ -81,7 +82,7 @@ export class DashboardView extends ItemView {
         // 绑定快捷键
         this.registerDomEvent(this.containerEl, 'keydown', (e: KeyboardEvent) => {
             const target = e.target as HTMLElement;
-            const isInputFocused = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || (target as any).isContentEditable);
+            const isInputFocused = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
             if (!isInputFocused) {
                 if (e.key === '/') {
                     const el = this.containerEl.querySelector('#aa-search') as HTMLInputElement;
@@ -370,7 +371,7 @@ export class DashboardView extends ItemView {
         // Filters (ledger tab only)
         if (this.currentTab === PanelTab.Transactions) {
             const filters = container.createDiv({ cls: 'aa-filters', attr: { id: 'aa-filters' } });
-            const searchInput = filters.createEl('input', { type: 'text', cls: 'aa-search', attr: { id: 'aa-search', placeholder: '搜索商户或备注…（/）' } }) as HTMLInputElement;
+            const searchInput = filters.createEl('input', { type: 'text', cls: 'aa-search', attr: { id: 'aa-search', placeholder: '搜索商户或备注…（/）' } });
             searchInput.value = this.searchQuery;
             searchInput.oninput = () => {
                 this.searchQuery = searchInput.value || '';
@@ -428,15 +429,15 @@ export class DashboardView extends ItemView {
         // Quick Form Wrapper (same as before)
         const quickFormWrapper = container.createEl('div', { cls: 'quick-form-wrapper is-hidden' });
         const qForm = quickFormWrapper.createEl('div', { cls: 'quick-form-inline' });
-        const dateInput = qForm.createEl('input', { type: 'date', attr: { id: 'aa-quick-date', 'aria-label': '交易日期' } }) as HTMLInputElement;
+        const dateInput = qForm.createEl('input', { type: 'date', attr: { id: 'aa-quick-date', 'aria-label': '交易日期' } });
         const today = new Date();
         dateInput.value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-        const amountInput = qForm.createEl('input', { type: 'number', attr: { placeholder: '金额', step: '0.01' } }) as HTMLInputElement;
+        const amountInput = qForm.createEl('input', { type: 'number', attr: { placeholder: '金额', step: '0.01' } });
         const currInput = qForm.createEl('select');
         ['CNY', 'JPY', 'USD', 'EUR', 'HKD', 'GBP'].forEach(c => { const o = currInput.createEl('option', { text: c, value: c }); if (c === this.plugin.settings.defaultInputCurrency) o.selected = true; });
-        const catInput = qForm.createEl('input', { type: 'text', attr: { placeholder: '分类' } }) as HTMLInputElement;
-        const pmInput = qForm.createEl('input', { type: 'text', attr: { placeholder: '支付方式' } }) as HTMLInputElement;
-        const descInput = qForm.createEl('input', { type: 'text', attr: { placeholder: '描述' } }) as HTMLInputElement;
+        const catInput = qForm.createEl('input', { type: 'text', attr: { placeholder: '分类' } });
+        const pmInput = qForm.createEl('input', { type: 'text', attr: { placeholder: '支付方式' } });
+        const descInput = qForm.createEl('input', { type: 'text', attr: { placeholder: '描述' } });
         const isSplitInput = qForm.createEl('div', { cls: 'quick-add-toggle' });
         const splitCheckbox = isSplitInput.createEl('input', { type: 'checkbox', attr: { id: 'aa-split' } });
         isSplitInput.createEl('label', { text: 'AA/分账', attr: { for: 'aa-split' } });
@@ -485,7 +486,7 @@ export class DashboardView extends ItemView {
         };
     }
 
-    private async renderGrid(dashboardGrid: HTMLElement, ctx: any) {
+    private async renderGrid(dashboardGrid: HTMLElement, ctx: RenderContext) {
         const { rawStats, navRawStats, navLabel } = ctx;
         if (this.allStats.length === 0 || !rawStats) {
             const empty = dashboardGrid.createDiv({ cls: 'rk-card aa-empty-state' });
@@ -543,6 +544,7 @@ export class DashboardView extends ItemView {
             const main = layout.createDiv({ cls: 'aa-ledger-main' });
             const aside = layout.createDiv({ cls: 'aa-ledger-aside' });
             renderTotals(aside);
+            this.renderBudget(aside, allTx);
 
             const where = aside.createDiv({ cls: 'rk-card is-flat aa-where' });
             where.createDiv({ cls: 'rk-label', text: '花在哪' });
@@ -651,7 +653,7 @@ export class DashboardView extends ItemView {
             dailyStats: {},
             paymentMethods: {},
             transactions
-        } as MonthlyStats;
+        };
     }
 
     private async renderTransactionDetailView(parent: HTMLElement, aside: HTMLElement, stats: MonthlyStats, navStats: MonthlyStats) {
@@ -793,7 +795,7 @@ export class DashboardView extends ItemView {
             this.renderDailyCategoryChart(canvas, navStats, displayDate);
 
 
-            let filteredTransactions: any[] = [];
+            let filteredTransactions: TransactionRecord[] = [];
             if (this.chartScope === 'day') {
                 filteredTransactions = stats.transactions.filter(t => t.date === displayDate);
             } else if (this.chartScope === 'month') {
@@ -1315,7 +1317,7 @@ export class DashboardView extends ItemView {
                         amount,
                         currency,
                         baseAmount,
-                        exchangeRate: rate,
+                        rate,
                         paymentMethod: payment
                     }]);
 
@@ -1335,12 +1337,47 @@ export class DashboardView extends ItemView {
         }
     }
 
+    /** This month's spending against the budgets in settings, in the report currency. */
+    private renderBudget(parent: HTMLElement, allTx: TransactionRecord[]) {
+        const settings = this.plugin.settings;
+        const budgets = parseBudgets(settings.budgetText);
+        const hasBudgets = budgets.total !== null || Object.keys(budgets.categories).length > 0;
+        const hasRecurring = settings.recurring.some(r => r.enabled && r.amount > 0);
+        if (!hasBudgets && !hasRecurring) return;
+
+        const month = new Date().toISOString().slice(0, 7);
+        const card = parent.createDiv({ cls: 'rk-card is-flat aa-budget' });
+        const head = card.createDiv({ cls: 'rk-split' });
+        head.createDiv({ cls: 'rk-label', text: `本月预算 · ${settings.baseCurrency}` });
+        if (hasRecurring) {
+            const add = head.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': '添加本月固定支出' } });
+            setIcon(add, 'calendar-plus');
+            add.onclick = () => void this.plugin.addRecurringForMonth(month);
+        }
+        if (!hasBudgets) {
+            card.createDiv({ cls: 'rk-cap', text: '在设置 → 月度预算里填写后，这里显示本月用了多少。' });
+            return;
+        }
+        const usage = budgetUsage(allTx, month, budgets);
+        const rows = usage.total ? [usage.total, ...usage.rows] : usage.rows;
+        for (const row of rows) {
+            const tone = row.ratio > 1 ? 'is-danger' : row.ratio >= 0.8 ? 'is-warn' : 'is-good';
+            const item = card.createDiv({ cls: `aa-budget-row${row === usage.total ? ' is-total' : ''}` });
+            const line = item.createDiv({ cls: 'rk-split' });
+            line.createSpan({ text: row.category });
+            line.createSpan({ cls: `rk-amt aa-budget-amt ${tone}`, text: `${this.formatAmount(row.spent)} / ${this.formatAmount(row.limit)}` });
+            const meter = item.createDiv({ cls: `rk-meter ${tone}` });
+            meter.createDiv({ cls: 'rk-meter-fill' }).setCssProps({ '--rk-fill': `${Math.min(row.ratio, 1) * 100}%` });
+            if (row.ratio > 1) item.createDiv({ cls: 'rk-cap aa-budget-over', text: `超出 ${this.formatAmount(row.spent - row.limit)}` });
+        }
+    }
+
     private renderDailyCategoryChart(canvas: HTMLCanvasElement, stats: MonthlyStats, date: string) {
         const base = this.plugin.settings.baseCurrency;
         const target = this.displayCurrency;
 
         // Scope-aware filtering
-        let scopedTransactions: any[] = [];
+        let scopedTransactions: TransactionRecord[] = [];
         if (this.chartScope === 'day') {
             scopedTransactions = stats.transactions.filter(t => t.date === date);
         } else if (this.chartScope === 'month') {
@@ -1571,7 +1608,7 @@ export class DashboardView extends ItemView {
                             label: (context) => {
                                 const label = context.label || '';
                                 const value = context.parsed || 0;
-                                const total = (context.dataset.data as number[]).reduce((a, b) => a + b, 0);
+                                const total = (context.dataset.data).reduce((a, b) => a + b, 0);
                                 const percentage = ((value / total) * 100).toFixed(1);
                                 return `${label}: ${value.toFixed(2)} ${this.displayCurrency} (${percentage}%)`;
                             }
@@ -1634,7 +1671,7 @@ export class DashboardView extends ItemView {
                             label: (context) => {
                                 const label = context.label || '';
                                 const value = context.parsed || 0;
-                                const total = (context.dataset.data as number[]).reduce((a, b) => a + b, 0);
+                                const total = (context.dataset.data).reduce((a, b) => a + b, 0);
                                 const percentage = ((value / total) * 100).toFixed(1);
                                 return `${label}: ${this.formatAmount(value)} ${this.plugin.settings.baseCurrency} (${percentage}%)`;
                             }

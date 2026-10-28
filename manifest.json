@@ -1,10 +1,10 @@
 {
-  "id": "ai-accounting-plugin",
-  "name": "AI Accounting Plugin",
-  "version": "0.4.0",
+  "id": "ai-accounting",
+  "name": "AI Accounting",
+  "version": "0.5.0",
   "description": "Multi-currency expense ledger in Markdown. Type or photograph a receipt, review what the AI read, then save it to your ledger.",
   "author": "Rexxall",
   "isDesktopOnly": false,
-  "minAppVersion": "1.8.0",
+  "minAppVersion": "1.11.4",
   "authorUrl": "https://github.com/Rexxall"
 }
