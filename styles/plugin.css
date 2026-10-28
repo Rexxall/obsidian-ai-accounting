@@ -34,10 +34,12 @@
 .ai-accounting-dashboard-container .aa-period .clickable-icon { padding: 4px; color: var(--ap-label-2); }
 .ai-accounting-dashboard-container .aa-period button.aa-period-pill { background: transparent; padding-inline: 8px 6px; font-weight: 600; }
 .ai-accounting-dashboard-container .aa-period button.aa-period-pill:hover { background: var(--ap-fill-strong); }
+.ai-accounting-dashboard-container .aa-toolbar > .ap-grow { flex: 1 1 200px; }
 .ai-accounting-dashboard-container .aa-search { max-width: 300px; margin-left: auto; padding-block: 5px; }
+.is-phone .ai-accounting-dashboard-container .aa-search { max-width: none; }
 .ai-accounting-dashboard-container .aa-search svg { width: 14px; height: 14px; }
-.ai-accounting-dashboard-container .aa-search input { box-shadow: none; background: none; padding: 0; height: auto; }
-.ai-accounting-dashboard-container .aa-search input:focus { box-shadow: none; }
+.ai-accounting-dashboard-container .aa-search input[type="text"] { box-shadow: none; background: none; padding: 0; height: auto; }
+.ai-accounting-dashboard-container .aa-search input[type="text"]:focus { box-shadow: none; }
 
 /* Popovers: period picker and filters */
 .ap-popover .aa-day-grid { grid-template-columns: repeat(7, 1fr); }

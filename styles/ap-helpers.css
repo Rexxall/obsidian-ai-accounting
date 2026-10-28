@@ -82,6 +82,9 @@
 .ap :is(input, select, textarea):focus { box-shadow: 0 0 0 1px var(--ap-accent), 0 0 0 4px var(--ap-accent-tint); }
 .ap .clickable-icon { border-radius: var(--ap-r-pill); }
 
+/* Phones: keep the end of a panel clear of Obsidian's floating navigation bar */
+.is-phone .ap.ap-view { padding-bottom: calc(var(--ap-s5) + 72px); }
+
 /* Modal parts */
 .ap .ap-modal-kicker { margin: -6px 0 var(--ap-s3); font: var(--ap-subhead); color: var(--ap-label-2); text-align: center; }
 .ap .ap-modal-foot { display: flex; align-items: center; justify-content: flex-end; gap: var(--ap-s2); margin-top: var(--ap-s4); padding-top: var(--ap-s3); box-shadow: inset 0 0.5px 0 var(--ap-sep); }
@@ -89,6 +92,10 @@
 .modal.ap-modal { padding: var(--ap-s5); }
 .modal.ap-modal .modal-content .setting-item { border-top: 0; }
 .modal.ap-modal .modal-close-button { border-radius: var(--ap-r-pill); }
+/* Phones: a long dialog scrolls, so its actions stay pinned to the bottom */
+.is-phone .modal.ap-modal .modal-content { padding-bottom: 0; }
+.is-phone .modal.ap-modal .ap-modal-foot { position: sticky; bottom: 0; z-index: 1; flex-wrap: wrap; padding-bottom: var(--ap-s4); background: var(--ap-glass-solid); }
+.is-phone .modal.ap-modal .ap-modal-foot .ap-foot-note { flex-basis: 100%; }
 
 /* ---------- Pieces the kit (74) is adding: row actions, pill picker, popover, disclosure row.
    Written with the kit's tokens; align with the appendix once it has them. ---------- */

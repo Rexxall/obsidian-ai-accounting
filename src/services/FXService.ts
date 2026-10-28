@@ -7,6 +7,14 @@ export interface ExchangeRateResponse {
     rates: Record<string, number>;
 }
 
+/** Thrown when no rate can be fetched and none is cached, for example offline. */
+export class RateUnavailableError extends Error {
+    constructor() {
+        super('取不到汇率，请稍后重试或手动填写。');
+        this.name = 'RateUnavailableError';
+    }
+}
+
 export class FXService {
     private cache: Map<string, { rate: number; timestamp: number }> = new Map();
     private CACHE_DURATION = 1000 * 60 * 60 * 24; // 24 hours
@@ -79,7 +87,7 @@ export class FXService {
             console.error('FXService Error:', error);
             // Fallback to cache if available even if expired
             if (cached) return cached.rate;
-            throw error;
+            throw new RateUnavailableError();
         }
     }
 

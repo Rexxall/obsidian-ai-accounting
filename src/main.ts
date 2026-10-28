@@ -186,7 +186,13 @@ export default class AccountingPlugin extends Plugin {
 		const userName = this.settings.users.find(u => u.id === userId)?.name || '';
 		const reviewed = await new ReviewImportModal(this.app, drafts, userName, `${month} 固定支出`, {}, '固定支出草稿').review();
 		if (!reviewed?.length) return;
-		await this.saveTransactions(reviewed, userId, row => row.id || '');
+		try {
+			await this.saveTransactions(reviewed, userId, row => row.id || '');
+		} catch (error) {
+			// Nothing is written when a rate is missing: every row is converted before the first write.
+			new Notice((error as Error).message, 7000);
+			return;
+		}
 		new Notice(`已入账 ${reviewed.length} 笔固定支出。`);
 		this.refreshDashboards();
 	}

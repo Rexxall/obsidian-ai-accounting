@@ -234,7 +234,7 @@ export class DashboardView extends ItemView {
         if (!container) {
             // Initial render or if cleared
             this.contentEl.empty(); // Preserve the native ItemView header.
-            container = this.contentEl.createEl('div', { cls: 'ai-accounting-dashboard-container' });
+            container = this.contentEl.createDiv({ cls: 'ai-accounting-dashboard-container' });
         }
         this.contentEl.addClass('aa-view-content');
         container.addClass('ap', 'ap-view');
@@ -251,7 +251,7 @@ export class DashboardView extends ItemView {
         this.renderHeader(container, ctx);
 
         // 3. Render Grid
-        const gridContainer = container.createEl('div', { cls: 'dashboard-grid' });
+        const gridContainer = container.createDiv({ cls: 'dashboard-grid' });
         await this.renderGrid(gridContainer, ctx);
     }
 
@@ -472,8 +472,8 @@ export class DashboardView extends ItemView {
 
     private renderQuickForm(container: HTMLElement) {
         // Quick Form Wrapper (same as before)
-        const quickFormWrapper = container.createEl('div', { cls: 'quick-form-wrapper is-hidden' });
-        const qForm = quickFormWrapper.createEl('div', { cls: 'quick-form-inline' });
+        const quickFormWrapper = container.createDiv({ cls: 'quick-form-wrapper is-hidden' });
+        const qForm = quickFormWrapper.createDiv({ cls: 'quick-form-inline' });
         const dateInput = qForm.createEl('input', { type: 'date', attr: { id: 'aa-quick-date', 'aria-label': '交易日期' } });
         const today = new Date();
         dateInput.value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
@@ -483,7 +483,7 @@ export class DashboardView extends ItemView {
         const catInput = qForm.createEl('input', { type: 'text', attr: { placeholder: '分类' } });
         const pmInput = qForm.createEl('input', { type: 'text', attr: { placeholder: '支付方式' } });
         const descInput = qForm.createEl('input', { type: 'text', attr: { placeholder: '描述' } });
-        const isSplitInput = qForm.createEl('div', { cls: 'quick-add-toggle' });
+        const isSplitInput = qForm.createDiv({ cls: 'quick-add-toggle' });
         const splitCheckbox = isSplitInput.createEl('input', { type: 'checkbox', attr: { id: 'aa-split' } });
         isSplitInput.createEl('label', { text: 'AA/分账', attr: { for: 'aa-split' } });
 
@@ -494,8 +494,9 @@ export class DashboardView extends ItemView {
             const currency = currInput.value || this.plugin.settings.defaultInputCurrency;
             if (!amount || amount <= 0) return;
             const yearMonth = `${date.slice(0, 4)}-${date.slice(5, 7)}`;
-            const baseAmount = await this.plugin.fxService.convert(amount, currency, this.plugin.settings.baseCurrency, date);
-            const rate = await this.plugin.fxService.getExchangeRate(currency, this.plugin.settings.baseCurrency, date);
+            const fx = await this.rateFor(amount, currency, date);
+            if (!fx) return;
+            const { baseAmount, rate } = fx;
 
             const isSplit = splitCheckbox.checked;
             const users = this.plugin.settings.users;
@@ -645,6 +646,17 @@ export class DashboardView extends ItemView {
     }
 
 
+    /** Amount in the report currency and the rate used, or null after telling the user no rate could be fetched. */
+    private async rateFor(amount: number, currency: string, date: string): Promise<{ baseAmount: number, rate: number } | null> {
+        try {
+            const rate = await this.plugin.fxService.getExchangeRate(currency, this.plugin.settings.baseCurrency, date);
+            return { baseAmount: amount * rate, rate };
+        } catch (error) {
+            new Notice((error as Error).message, 7000);
+            return null;
+        }
+    }
+
     private adjustDate(delta: number) {
         if (this.chartScope === 'day') {
             this.currentDate.setDate(this.currentDate.getDate() + delta);
@@ -663,7 +675,7 @@ export class DashboardView extends ItemView {
         const csv = [header.join(','), ...rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))].join('\n');
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
+        const a = createEl('a');
         a.href = url;
         a.download = `transactions-${stats.month}.csv`;
         document.body.appendChild(a);
@@ -884,14 +896,9 @@ export class DashboardView extends ItemView {
 
             // Sort
             filteredTransactions.sort((a, b) => {
-                let valA: any = a[this.sortColumn as keyof TransactionRecord];
-                let valB: any = b[this.sortColumn as keyof TransactionRecord];
-
-                if (this.sortColumn === 'amount') {
-                    valA = a.baseAmount;
-                    valB = b.baseAmount;
-                }
-
+                const key = this.sortColumn === 'amount' ? 'baseAmount' : this.sortColumn as keyof TransactionRecord;
+                const valA = a[key] ?? '';
+                const valB = b[key] ?? '';
                 if (valA < valB) return this.sortDirection === 'asc' ? -1 : 1;
                 if (valA > valB) return this.sortDirection === 'asc' ? 1 : -1;
                 return 0;
@@ -970,7 +977,7 @@ export class DashboardView extends ItemView {
                         const label = usersContainer.createEl('label', { cls: 'aa-split-user' });
                         const chk = label.createEl('input', { type: 'checkbox' });
                         chk.checked = true;
-                        label.createEl('span', { text: u.name });
+                        label.createSpan({ text: u.name });
                         userChecks[u.id] = chk;
                     });
 
@@ -1212,7 +1219,7 @@ export class DashboardView extends ItemView {
                             const label = row.createEl('label', { cls: 'aa-split-user ap-grow' });
                             const chk = label.createEl('input', { type: 'checkbox' });
                             chk.checked = true; // default all checked
-                            label.createEl('span', { text: u.name + (isOwner ? ' (付款方)' : '') });
+                            label.createSpan({ text: u.name + (isOwner ? ' (付款方)' : '') });
                             userChecks[u.id] = chk;
 
                             const input = row.createEl('input', { type: 'number', cls: 'aa-split-amount', attr: { step: '0.01', min: '0' } });
@@ -1350,8 +1357,9 @@ export class DashboardView extends ItemView {
                     const date = dateEntryInput.value || defaultAddDate;
                     const currency = this.displayCurrency;
 
-                    const baseAmount = await this.plugin.fxService.convert(amount, currency, this.plugin.settings.baseCurrency, date);
-                    const rate = await this.plugin.fxService.getExchangeRate(currency, this.plugin.settings.baseCurrency, date);
+                    const fx = await this.rateFor(amount, currency, date);
+                    if (!fx) return;
+                    const { baseAmount, rate } = fx;
                     const yearMonth = date.slice(0, 7);
 
                     await this.plugin.dataService.appendBatchToMonthlyReport(yearMonth, [{

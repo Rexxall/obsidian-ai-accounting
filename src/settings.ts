@@ -114,7 +114,7 @@ export class AccountingSettingTab extends PluginSettingTab {
 				.onChange(async value => { s.defaultInputCurrency = value.trim().toUpperCase(); await save(); }));
 		new Setting(containerEl)
 			.setName('票据收件箱')
-			.setDesc('放进这个文件夹的图片和文本会被识别，核对后入账。')
+			.setDesc('放进这个文件夹的图片和文本会立即发给 AI 服务识别，核对后入账；配了多个服务时，一个失败就换下一个，同一张票据可能发给几家服务。留空即关闭。')
 			.addText(text => text
 				.setPlaceholder('Finances/Inbox')
 				.setValue(s.magicFolderPath)
@@ -245,7 +245,7 @@ export class AccountingSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 					this.display();
 				}));
-		containerEl.createDiv({ cls: 'setting-item-description aa-settings-note', text: '每位成员有自己的账本文件夹，可另设专用收件箱。第一位是默认成员。' });
+		containerEl.createDiv({ cls: 'setting-item-description aa-settings-note', text: '每位成员有自己的账本文件夹，可另设专用收件箱；放进专用收件箱的文件同样会立即发给 AI 服务。第一位是默认成员。' });
 		s.users.forEach((user, index) => {
 			const row = new Setting(containerEl)
 				.setClass('aa-member-row')

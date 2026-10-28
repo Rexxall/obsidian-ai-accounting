@@ -81,11 +81,18 @@ Up to 0.4.0 the plugin was called *AI Accounting Plugin* with the id `ai-account
 | Ledgers | Markdown files in your vault, one per month (`Finances/YYYY-MM.md` by default) |
 | Settings | This plugin's `data.json` in your vault |
 | API keys | Obsidian's secret storage on this device; settings keep only the secret's name |
-| Text or images you choose to process | Sent to the AI service you configured, only when you process a note or a file arrives in an inbox folder |
+| Text or images you choose to process | Sent to the AI service you configured when you process a note, or as soon as a file lands in an inbox folder |
 | Exchange rates | Requested from `frankfurter.app` and cached in the plugin folder |
 | Gemini key | Sent in a request header, never in the URL |
 
 No account, no server of our own, no analytics.
+
+### Network use
+
+- **Inbox folders send files right away.** While an inbox folder is set (the shared one or a member's own), every image or text file that lands in it is sent to the AI service at once, before you see the review dialog. Leave the inbox folder empty to turn this off.
+- **Several AI services can see the same receipt.** With more than one service in the list, the plugin tries them in order and moves to the next when one fails, so a receipt may be sent to more than one provider. Keep only the services you trust in the list.
+- **Exchange rates** come from `frankfurter.app`: only the currency pair and date are sent. If no rate can be fetched and none is cached, nothing is written and the plugin says so; try again later or enter the amount in the report currency yourself.
+- Nothing else leaves your device.
 
 ## How it works
 
@@ -167,6 +174,7 @@ MIT
 - **查看：** 默认显示明细；分类（可下钻）、支付方式、月度趋势、成员对比图表；编辑、改分类、按年批量改名、删除（需点两次）；导出 CSV；可追加到日记。
 - **预算与固定支出（0.5.0）：** 设置里每行写“分类 金额”（加一行“总计”），账本页显示本月各分类用了多少，超 80% 变橙、超出变红；房租、话费等固定支出设一次，每月一键进核对表确认入账，同月不会重复。
 - **AI 服务：** Gemini 或任意 OpenAI 兼容服务，多个服务按顺序自动切换；密钥存在 Obsidian 密钥库，可与其他插件共用。
+- **联网：** 设了收件文件夹（公用的或成员专属的），文件一放进去就会立即发给 AI 服务，核对表出现在那之后；留空即关闭。配了多个 AI 服务时，一个失败就换下一个，同一张小票可能发给几家服务。汇率向 `frankfurter.app` 查询，只发币种和日期；取不到汇率时不会写入，会提示稍后重试或手动填写。
 - **从 0.4.0 升级：** 插件 id 从 `ai-accounting-plugin` 改为 `ai-accounting`（商城不允许名称带 plugin），Obsidian 视为新插件。装好 0.5.0 后首次启动会自动导入旧设置并提示，账本笔记不受影响；确认无误后删除旧版即可。
 - **数据安全：** 每笔交易带隐藏标识，按标识编辑；描述里的竖线和换行会安全转义；文件在你打开后被改过就提示刷新，不会覆盖；同一张小票重复处理不会重复入账。
 
@@ -179,5 +187,6 @@ MIT
 - **確認：** 明細、分類別（下位分類まで）、支払方法、月別推移、メンバー比較のグラフ。CSV 書き出し、日記への追記にも対応。
 - **予算と固定費（0.5.0）：** 分類ごとの月予算と、家賃や通信費など毎月の固定費。固定費は確認画面を通して記帳し、同じ月に二重には入りません。
 - **AI：** Gemini または OpenAI 互換サービス。複数のサービスを順に試します。API キーは Obsidian のシークレット保存に置き、他のプラグインと共有できます。
+- **通信：** 受信フォルダを設定している間は、ファイルを入れた時点で AI サービスに送信されます（空欄にすると停止）。複数のサービスを登録すると、失敗時に次のサービスへ送るため、同じレシートが複数の事業者に届くことがあります。為替レートは `frankfurter.app` に通貨と日付だけを問い合わせます。
 - **0.4.0 からの更新：** ID が `ai-accounting-plugin` から `ai-accounting` に変わりました。初回起動時に旧設定を読み込みます。
 - **安全性：** 取引ごとに見えない ID を付けて編集し、表を壊す文字はエスケープします。同じレシートを二度処理しても二重に記帳されません。
