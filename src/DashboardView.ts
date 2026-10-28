@@ -5,7 +5,7 @@ import AccountingPlugin from './main';
 import { RenameCategoryModal } from './modals/RenameCategoryModal';
 import { EditTransactionModal } from './modals/EditTransactionModal';
 import { budgetUsage, parseBudgets } from './services/planning';
-import { openPopover } from './popover';
+import { openDatePicker, openPopover } from './popover';
 
 Chart.register(...registerables);
 
@@ -354,6 +354,17 @@ export class DashboardView extends ItemView {
     }
 
     private openPeriodPicker(anchor: HTMLElement) {
+        if (this.chartScope === 'day') {
+            const c = this.currentDate;
+            const value = `${c.getFullYear()}-${String(c.getMonth() + 1).padStart(2, '0')}-${String(c.getDate()).padStart(2, '0')}`;
+            openDatePicker(anchor, value, date => {
+                const [y, m, d] = date.split('-').map(Number);
+                this.currentDate = new Date(y!, m! - 1, d);
+                this.adjustDate(0);
+                void this.render();
+            });
+            return;
+        }
         openPopover(anchor, 'aa-period-pop', (el, close) => {
             const pick = (date: Date) => { this.currentDate = date; close(); this.adjustDate(0); void this.render(); };
             const today = new Date();
@@ -362,7 +373,7 @@ export class DashboardView extends ItemView {
                 const head = el.createDiv({ cls: 'ap-popover-head' });
                 const back = head.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': '上一页' } });
                 setIcon(back, 'chevron-left');
-                const label = this.chartScope === 'day' ? `${year} 年 ${month + 1} 月` : this.chartScope === 'month' ? `${year} 年` : `${year - 11} – ${year} 年`;
+                const label = this.chartScope === 'month' ? `${year} 年` : `${year - 11} – ${year} 年`;
                 head.createSpan({ text: label });
                 const forward = head.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': '下一页' } });
                 setIcon(forward, 'chevron-right');
@@ -385,20 +396,6 @@ export class DashboardView extends ItemView {
                         btn.toggleClass('is-selected', y === this.currentDate.getFullYear());
                         btn.toggleClass('is-today', y === today.getFullYear());
                         btn.onclick = () => pick(new Date(y, 0, 1));
-                    }
-                } else {
-                    back.onclick = () => (month === 0 ? fill(year - 1, 11) : fill(year, month - 1));
-                    forward.onclick = () => (month === 11 ? fill(year + 1, 0) : fill(year, month + 1));
-                    const grid = el.createDiv({ cls: 'ap-month-grid aa-day-grid' });
-                    ['一', '二', '三', '四', '五', '六', '日'].forEach(d => grid.createSpan({ cls: 'ap-cap', text: d }));
-                    const first = new Date(year, month, 1);
-                    for (let i = 0; i < (first.getDay() + 6) % 7; i++) grid.createSpan();
-                    const days = new Date(year, month + 1, 0).getDate();
-                    for (let d = 1; d <= days; d++) {
-                        const btn = grid.createEl('button', { text: String(d) });
-                        btn.toggleClass('is-selected', year === this.currentDate.getFullYear() && month === this.currentDate.getMonth() && d === this.currentDate.getDate());
-                        btn.toggleClass('is-today', year === today.getFullYear() && month === today.getMonth() && d === today.getDate());
-                        btn.onclick = () => pick(new Date(year, month, d));
                     }
                 }
             };

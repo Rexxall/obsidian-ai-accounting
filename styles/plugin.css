@@ -40,8 +40,8 @@
 .ai-accounting-dashboard-container .aa-search input:focus { box-shadow: none; }
 
 /* Popovers: period picker and filters */
-.aa-period-pop .aa-day-grid { grid-template-columns: repeat(7, 1fr); }
-.aa-period-pop .aa-day-grid .ap-cap { text-align: center; margin: 0 0 2px; }
+.ap-popover .aa-day-grid { grid-template-columns: repeat(7, 1fr); }
+.ap-popover .aa-day-grid .ap-cap { text-align: center; margin: 0 0 2px; }
 .aa-filter-pop { width: 300px; display: grid; gap: var(--ap-s3); }
 .aa-filter-pop .aa-filter-scope { display: grid; grid-template-columns: repeat(3, 1fr); }
 .aa-filter-pop .aa-filter-section { display: grid; gap: 6px; }
@@ -297,3 +297,5 @@
 @media (max-width: 600px) {
 	.aa-settings .aa-settings-fields .setting-item-control { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+.aa-review-modal .aa-review-field.is-date { justify-items: start; }
+.aa-review-modal button.aa-date-pill.is-flagged { box-shadow: 0 0 0 1px var(--ap-warn); background: var(--ap-warn-soft); }

@@ -128,7 +128,7 @@ npm run lint
 - Model replies are typed and checked; `npm run lint` passes with no errors.
 - A quieter ledger header: Ledger and Charts, one month capsule that opens a month picker, a search field, and a single Filter button for day, month or year, currency, member, category and payment method.
 - Row actions appear when you point at a row (always shown on touch screens); the member initial shows only in a ledger with more than one member.
-- The review dialog lists one line per transaction with the full text; click a line to edit it. Lines with something missing open by themselves.
+- The review dialog lists one line per transaction with the full text; click a line to edit it, and pick the date from a month calendar. Lines with something missing open by themselves.
 
 **0.4.0**
 

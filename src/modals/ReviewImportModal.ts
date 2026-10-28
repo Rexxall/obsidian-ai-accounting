@@ -1,6 +1,7 @@
 import { App, Modal, Notice, setIcon } from 'obsidian';
 import { TransactionData } from '../services/AIService';
 import { validateTransaction } from '../services/ledger';
+import { openDatePicker } from '../popover';
 
 /** What the AI read from: the receipt image or the start of the note. */
 export interface ReviewSource {
@@ -61,9 +62,9 @@ export class ReviewImportModal extends Modal {
             });
             lines.forEach(line => {
                 line.draw();
-                line.inputs.forEach((input, i) => {
-                    const field = FIELDS[i];
-                    if (field) input.toggleClass('is-flagged', this.isMissing(line.row, field.key));
+                line.inputs.forEach(input => {
+                    const key = input.dataset.key as keyof TransactionData;
+                    input.toggleClass('is-flagged', this.isMissing(line.row, key));
                 });
             });
             summary.empty();
@@ -92,11 +93,27 @@ export class ReviewImportModal extends Modal {
             head.onkeydown = (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggle(); } };
 
             const editor = item.createDiv({ cls: 'ap-disclosure-body aa-review-editor' });
-            const inputs = FIELDS.map(({ key, label }) => {
+            const inputs: HTMLInputElement[] = [];
+            FIELDS.forEach(({ key, label }) => {
+                if (key === 'date') {
+                    // The date is a pill that opens the same month calendar as the ledger header.
+                    const field = editor.createDiv({ cls: 'aa-review-field is-date' });
+                    field.createSpan({ cls: 'ap-cap', text: label });
+                    const pill = field.createEl('button', { cls: 'ap-pill-select aa-date-pill', attr: { 'aria-label': label, 'aria-haspopup': 'dialog' } });
+                    const drawPill = () => {
+                        pill.empty();
+                        pill.appendText(row.date || '选择日期');
+                        setIcon(pill.createSpan(), 'chevron-down');
+                        pill.toggleClass('is-flagged', this.isMissing(row, 'date'));
+                    };
+                    drawPill();
+                    pill.onclick = () => openDatePicker(pill, row.date || '', date => { row.date = date; drawPill(); refresh(); });
+                    return;
+                }
                 const field = editor.createEl('label', { cls: `aa-review-field is-${key}` });
                 field.createSpan({ cls: 'ap-cap', text: label });
                 const input = field.createEl('input', {
-                    type: key === 'date' ? 'date' : key === 'amount' ? 'number' : 'text',
+                    type: key === 'amount' ? 'number' : 'text',
                     cls: `aa-cell-input is-${key}`
                 });
                 input.value = String(row[key] ?? '');
@@ -107,7 +124,8 @@ export class ReviewImportModal extends Modal {
                     else row[key] = key === 'currency' ? input.value.trim().toUpperCase() : input.value;
                     refresh();
                 });
-                return input;
+                input.dataset.key = key;
+                inputs.push(input);
             });
 
             const draw = () => {
