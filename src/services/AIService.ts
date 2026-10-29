@@ -1,5 +1,6 @@
-import { requestUrl, Notice } from 'obsidian';
-import { AccountingSettings } from '../settings';
+import { AccountingSettings, ApiEndpoint } from '../settings';
+import { AiError, AiTarget, CancelToken, chat, parseJsonArray, presetFor } from '../ai/providers';
+import { tr } from '../i18n';
 
 export interface TransactionData {
     /** Set for rows whose ID is known in advance, such as recurring expenses. */
@@ -12,24 +13,55 @@ export interface TransactionData {
     paymentMethod?: string;
 }
 
+export interface ProcessHooks {
+    token?: CancelToken;
+    /** Called before each service is tried. */
+    onAttempt?: (serviceName: string, index: number, total: number) => void;
+}
+
+/** Category for moving money between your own accounts; it is listed but not counted as spending. */
+export const TRANSFER_CATEGORY = '转账';
+
 export class AIService {
-    private settings: AccountingSettings;
-
     /** Keys live in Obsidian's secret storage; settings only hold the secret names. */
-    constructor(settings: AccountingSettings, private getSecret: (name: string) => string = () => '') {
-        this.settings = settings;
+    constructor(private settings: AccountingSettings, private getSecret: (name: string) => string = () => '') { }
+
+    /** Enabled services in order; for an image, only those that read images. */
+    services(isImage: boolean): ApiEndpoint[] {
+        return this.settings.apiEndpoints.filter(ep => ep.enabled && (!isImage || ep.vision));
     }
 
-    private geminiKey(): string {
-        return (this.settings.geminiSecretName && this.getSecret(this.settings.geminiSecretName)) || this.settings.geminiApiKey || '';
+    private target(ep: ApiEndpoint): AiTarget {
+        return { provider: ep.provider, baseUrl: ep.endpoint || presetFor(ep.provider).baseUrl, model: ep.model, apiKey: ep.apiKeySecret ? this.getSecret(ep.apiKeySecret) : ep.apiKey };
     }
 
-    async processInput(content: string, isImage: boolean = false): Promise<TransactionData[]> {
-        if (this.settings.aiProvider === 'gemini') {
-            return this.processGemini(content, isImage);
-        } else {
-            return this.processOpenAIWithFallback(content, isImage);
+    /**
+     * Reads transactions from text or an image (base64). Services are tried in order; a failed one
+     * hands over to the next. Throws the last AiError when none works.
+     */
+    async processInput(content: string, isImage = false, mimeType = 'image/jpeg', hooks: ProcessHooks = {}): Promise<TransactionData[]> {
+        const candidates = this.services(isImage);
+        if (candidates.length === 0) {
+            throw new AiError('no-key', undefined, isImage && this.services(false).length > 0 ? 'no-vision' : 'no-service', 'chat');
         }
+        let last: AiError | undefined;
+        for (const [index, ep] of candidates.entries()) {
+            if (hooks.token?.cancelled) throw new AiError('cancelled', undefined, '', 'chat');
+            hooks.onAttempt?.(ep.name || presetFor(ep.provider).name, index + 1, candidates.length);
+            try {
+                const reply = await chat(this.target(ep), {
+                    prompt: isImage ? this.prompt() : `${this.prompt()}\n\nInput:\n${content}`,
+                    image: isImage ? { data: content, mimeType } : undefined,
+                    json: true
+                }, 90000, hooks.token);
+                return this.normalizeDraft(parseJsonArray(reply));
+            } catch (error) {
+                last = error instanceof AiError ? error : new AiError('bad-reply', undefined, '', 'chat');
+                if (last.kind === 'cancelled') throw last;
+                console.warn(`AI Accounting: service ${index + 1} failed (${last.kind}${last.status ? ` ${last.status}` : ''}).`);
+            }
+        }
+        throw last ?? new AiError('network', undefined, '', 'chat');
     }
 
     /** AI output is untrusted: only accept plain text or numbers for text fields. */
@@ -39,7 +71,7 @@ export class AIService {
         return fallback;
     }
 
-    private normalizeDraft(rows: unknown[]): TransactionData[] {
+    normalizeDraft(rows: unknown[]): TransactionData[] {
         return rows.filter((row): row is Record<string, unknown> => !!row && typeof row === 'object').map(row => ({
             date: typeof row.date === 'string' ? row.date : '',
             description: this.asText(row.description, ''),
@@ -50,284 +82,31 @@ export class AIService {
         }));
     }
 
-    private cleanJSON(text: string): string {
-        // Strip markdown code blocks if present
-        let cleaned = text.trim();
-        if (cleaned.startsWith('```')) {
-            cleaned = cleaned.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
-        }
-        return cleaned.trim();
+    private prompt(): string {
+        const today = new Date();
+        const iso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+        return `Extract transaction details for bookkeeping. The input may contain several transactions.
+Return a JSON array of objects with these keys:
+- date: YYYY-MM-DD. Use ${iso} if the input has no date.
+- description: keep the full context, with merchant names standardized to their best-known form
+  ("全家"/"familymart" → "FamilyMart", "7-11"/"セブンイレブン" → "7-Eleven", "罗森"/"ローソン" → "Lawson",
+  "星巴克" → "Starbucks", "麦当劳" → "McDonald's", "肯德基" → "KFC"). Keep the other words, e.g. "FamilyMart买水".
+- category: "Primary / Secondary". Primary is one of [餐饮美食, 购物消费, 交通出行, 居家生活, 休闲娱乐, 医疗保健, 金融税务, 其他支出, ${TRANSFER_CATEGORY}].
+  Secondary is a specific sub-category inferred from the merchant. Reuse the same names for the same things; do not create near-duplicates.
+  Moving money between the payer's own accounts (top-ups, card repayments, ATM withdrawals) is "${TRANSFER_CATEGORY} / <what>".
+- amount: a number. Positive for spending. A refund or return is negative, with the category of the original purchase.
+- currency: 3-letter code. Use ${this.settings.defaultInputCurrency} if none is given.
+- paymentMethod: e.g. 现金, 微信零钱, 支付宝, "<Bank>信用卡", "<Bank>借记卡"; "EPOS" → "EPOS信用卡". Use "未分类" if unknown.
+Return only the JSON array, without code fences.`;
     }
+}
 
-    private async processGemini(content: string, isImage: boolean): Promise<TransactionData[]> {
-        if (!this.geminiKey()) {
-            new Notice('请先在设置里选择 Gemini API 密钥。');
-            return [];
-        }
-
-        const model = this.settings.geminiModel || 'gemini-2.5-flash';
-        // Models usually start with "models/" in some SDKs, but here we use the URL directly
-        // Key goes in a header, not the URL, so it never appears in logged URLs or error messages.
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
-
-        const prompt = `Extract transaction details for bookkeeping. 
-The input may contain multiple transactions. Return a JSON ARRAY of objects.
-Each object must have:
-- date: (string, YYYY-MM-DD format, fallback to today's date if missing)
-- description: (string, preserve the full description context. 
-  
-  MERCHANT NAME STANDARDIZATION (when a merchant is mentioned):
-  Standardize merchant names to their most recognizable/commonly-used form:
-  - "全家" / "FamilyMart" / "familymart" → "FamilyMart"
-  - "7-11" / "7-Eleven" / "セブンイレブン" → "7-Eleven"
-  - "罗森" / "Lawson" / "ローソン" → "Lawson"
-  - "星巴克" / "Starbucks" → "Starbucks"
-  - "麦当劳" / "McDonald's" → "McDonald's"
-  - "肯德基" / "KFC" → "KFC"
-  
-  IMPORTANT: Preserve other words in the description (e.g., "FamilyMart买水" not just "FamilyMart").
-  Use the most recognizable form (English or Chinese), not necessarily both. Keep it concise)
-- category: (string, MUST follow format "Primary / Secondary". 
-  Choose Primary from: [餐饮美食, 购物消费, 交通出行, 居家生活, 休闲娱乐, 医疗保健, 金融税务, 其他支出]. 
-  Secondary is a specific sub-category. Use merchant/shop names to infer high-precision sub-categories.
-  
-  IMPORTANT CATEGORY RULES:
-  1. Consolidate similar categories - do NOT create near-duplicates (e.g., "家具" and "家具家居" should both be "家具家居")
-  2. Use consistent naming - if a subcategory already exists (like "房租"), always use the exact same name
-  3. Prefer existing subcategory names over creating new ones when the meaning is similar)
-- amount: (number, positive)
-- currency: (string, 3-letter code, e.g., CNY, USD, JPY. Default to ${this.settings.defaultInputCurrency} if no currency is mentioned).
-- paymentMethod: (string, payment method used.
-  
-  IMPORTANT PAYMENT METHOD NORMALIZATION:
-  1. Match partial names to full names: "EPOS" → "EPOS信用卡", "微信" → "微信零钱", "支付宝" → "支付宝"
-  2. Standardize credit card names: Include bank name + "信用卡" (e.g., "招商银行信用卡", "工商银行信用卡")
-  3. Common patterns:
-     - "现金" for cash
-     - "微信零钱" or "微信支付" for WeChat (prefer "微信零钱")
-     - "支付宝" for Alipay
-     - "[Bank]信用卡" for credit cards (e.g., "EPOS信用卡", "三井住友信用卡")
-     - "[Bank]借记卡" for debit cards
-  4. If ambiguous or not mentioned, use "未分类").
-
-Return ONLY the JSON array. Do not include markdown code blocks.
-
-Input: ${isImage ? '[An image was provided]' : content}`;
-
-        type GeminiPart = { text: string } | { inlineData: { mimeType: string; data: string } };
-        const parts: GeminiPart[] = isImage
-            // content is base64; Gemini reads the actual format from the bytes.
-            ? [{ inlineData: { mimeType: "image/jpeg", data: content } }, { text: prompt }]
-            : [{ text: prompt + "\n\n" + content }];
-        const body = {
-            contents: [{ parts }],
-            generationConfig: {
-                responseMimeType: "application/json",
-            }
-        };
-
-        try {
-            const response = await requestUrl({
-                url,
-                method: 'POST',
-                contentType: 'application/json',
-                headers: { 'x-goog-api-key': this.geminiKey() },
-                body: JSON.stringify(body),
-                throw: false // Handle status ourselves
-            });
-
-            if (response.status !== 200) {
-                console.error('Gemini error status:', response.status, response.text);
-                if (response.status === 429) {
-                    new Notice('Gemini API 频率限制 (429)。请稍后再试或检查额度。');
-                } else {
-                    new Notice(`Gemini API 错误 (${response.status})。请检查 API Key 或模型名称。`);
-                }
-                return [];
-            }
-
-            const result = response.json as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
-            const textResponse = this.cleanJSON(result.candidates?.[0]?.content?.parts?.[0]?.text ?? '[]');
-            const parsed: unknown = JSON.parse(textResponse);
-            return this.normalizeDraft(Array.isArray(parsed) ? parsed : [parsed]);
-        } catch (error) {
-            console.error('Gemini API Error:', error);
-            new Notice('Gemini 网络或解析错误，请查看控制台。');
-            return [];
-        }
+/** A sentence for a failure, including the cases where no service is set up or none reads images. */
+export function failureMessage(error: unknown): string {
+    if (error instanceof AiError) {
+        if (error.detail === 'no-vision') return tr('None of your AI services reads images. Turn on "Reads images" for one that does, or add one in settings.', '没有能识图的 AI 服务。请在设置里给支持图片的服务打开“能识图”，或添加一个。');
+        if (error.detail === 'no-service') return tr('No AI service is set up yet. Add one in settings → AI services.', '还没有设置 AI 服务。请到设置 → AI 服务里添加。');
+        return error.message;
     }
-
-    /**
-     * 遍历 apiEndpoints 列表，按顺序尝试，一个失败立即切换下一个（Fallback 模式）。
-     * 兼容旧的单一 openaiApiKey/openaiEndpoint 配置（当 apiEndpoints 为空时）。
-     */
-    private async processOpenAIWithFallback(content: string, isImage: boolean): Promise<TransactionData[]> {
-        // 构建候选列表：优先使用 apiEndpoints，兼容旧配置
-        const candidates = (this.settings.apiEndpoints || []).filter(ep => ep.enabled)
-            .map(ep => ({ ...ep, apiKey: ep.apiKeySecret ? this.getSecret(ep.apiKeySecret) : ep.apiKey }));
-
-        // 若列表为空，降级到旧的单一 endpoint 配置
-        if (candidates.length === 0) {
-            if (!this.settings.openaiApiKey && !this.settings.openaiEndpoint) {
-                new Notice('请在设置中至少添加一个 API 接口。');
-                return [];
-            }
-            candidates.push({
-                id: 'legacy',
-                name: 'OpenAI (旧配置)',
-                endpoint: this.settings.openaiEndpoint || 'https://api.openai.com/v1',
-                apiKey: this.settings.openaiApiKey || '',
-                model: this.settings.openaiModel || 'gpt-4o',
-                enabled: true,
-            });
-        }
-
-        const errors: string[] = [];
-
-        for (let i = 0; i < candidates.length; i++) {
-            const ep = candidates[i]!;
-            const isLast = i === candidates.length - 1;
-            const label = ep.name || ep.endpoint;
-
-
-            try {
-                const result = await this.processOpenAI(content, isImage, ep);
-                if (result.length > 0) {
-                    if (i > 0) {
-                        new Notice(`✅ 已切换到备用 Endpoint「${label}」并成功`);
-                    }
-                    return result;
-                }
-                // 若返回空数组但没抛出异常，视为 API 响应失败，继续尝试下一个
-                const msg = `Endpoint「${label}」返回空结果`;
-                errors.push(msg);
-                console.warn(`[AIService] ${msg}，尝试下一个...`);
-                if (!isLast) {
-                    new Notice(`⚠️ ${label} 失败，尝试下一个...`, 2000);
-                }
-            } catch (error) {
-                const msg = `Endpoint「${label}」错误: ${(error as Error).message}`;
-                errors.push(msg);
-                console.warn(`[AIService] ${msg}，尝试下一个...`);
-                if (!isLast) {
-                    new Notice(`⚠️ ${label} 失败，尝试下一个...`, 2000);
-                }
-            }
-        }
-
-        new Notice(`❌ 所有 Endpoint 均失败（共 ${candidates.length} 个）。请检查配置。`, 5000);
-        console.error('[AIService] 所有 Endpoint 均失败:', errors);
-        return [];
-    }
-
-    private async processOpenAI(content: string, isImage: boolean, ep?: { endpoint: string; apiKey: string; model: string }): Promise<TransactionData[]> {
-        // 若传入了 ep 参数则使用它，否则回落到旧 settings 字段（向后兼容）
-        let endpointUrl = ep ? ep.endpoint : (this.settings.openaiEndpoint || 'https://api.openai.com/v1');
-        const apiKey = ep ? ep.apiKey : this.settings.openaiApiKey;
-        const model = ep ? ep.model : (this.settings.openaiModel || 'gpt-4o');
-
-        if (!apiKey) {
-            throw new Error('API Key 为空');
-        }
-
-        endpointUrl = endpointUrl.trim();
-        if (endpointUrl.endsWith('/')) {
-            endpointUrl = endpointUrl.slice(0, -1);
-        }
-
-        const url = `${endpointUrl}/chat/completions`;
-
-        type ChatContent = { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } };
-        const userContent: ChatContent[] = [];
-        const messages = [
-            {
-                role: "system",
-                content: "You are a helpful bookkeeping assistant. Extract transaction data into a JSON array. Return ONLY the JSON. Do not use markdown code blocks."
-            },
-            {
-                role: "user",
-                content: userContent
-            }
-        ];
-
-        const textPrompt = `Extract transaction details for bookkeeping. The input may contain multiple transactions. 
-Return a JSON array of objects with keys: date (YYYY-MM-DD), description (preserve full context with standardized merchant names), category, amount (number), currency (3-letter code), paymentMethod (string).
-
-MERCHANT NAME STANDARDIZATION (in description field):
-When a merchant is mentioned, standardize to the most recognizable/commonly-used form:
-- "全家" / "FamilyMart" → "FamilyMart"
-- "7-11" / "セブンイレブン" → "7-Eleven"
-- "罗森" / "Lawson" → "Lawson"
-- "星巴克" / "Starbucks" → "Starbucks"
-- "麦当劳" / "McDonald's" → "McDonald's"
-- "肯德基" / "KFC" → "KFC"
-
-IMPORTANT: Preserve other words in description (e.g., "FamilyMart买水" not just "FamilyMart"). Use the most recognizable form (English or Chinese), not necessarily both. Keep descriptions concise.
-
-Category MUST follow "Primary / Secondary" format. Primary categories: [餐饮美食, 购物消费, 交通出行, 居家生活, 休闲娱乐, 医疗保健, 金融税务, 其他支出].
-
-IMPORTANT CATEGORY RULES:
-1. Consolidate similar categories - do NOT create near-duplicates (e.g., "家具" and "家具家居" should both be "家具家居")
-2. Use consistent naming - if a subcategory already exists (like "房租" or "买菜"), always use the exact same name
-3. Prefer existing subcategory names over creating new ones when the meaning is similar
-
-IMPORTANT PAYMENT METHOD NORMALIZATION:
-1. Match partial names to full standardized names:
-   - "EPOS" → "EPOS信用卡"
-   - "微信" → "微信零钱"
-   - "支付宝" → "支付宝"
-   - "现金" for cash
-2. Standardize credit/debit cards: [Bank Name]信用卡 or [Bank Name]借记卡
-   Examples: "招商银行信用卡", "工商银行借记卡", "三井住友信用卡"
-3. If ambiguous or not mentioned, use "未分类"
-
-If no currency is specified in the input, use ${this.settings.defaultInputCurrency} as the default.`;
-
-        if (isImage) {
-            userContent.push({ type: 'text', text: textPrompt });
-            userContent.push({
-                type: 'image_url',
-                image_url: {
-                    url: `data:image/jpeg;base64,${content}`
-                }
-            });
-        } else {
-            userContent.push({ type: 'text', text: textPrompt + "\n\n" + content });
-        }
-
-        const response = await requestUrl({
-            url,
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${apiKey}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                model,
-                messages,
-                response_format: { type: "json_object" }
-            }),
-            throw: false
-        });
-
-        if (response.status !== 200) {
-            const errMsg = `HTTP ${response.status}: ${response.text?.slice(0, 200) || '无响应体'}`;
-            console.error('OpenAI error:', errMsg);
-            throw new Error(errMsg);
-        }
-
-        const result = response.json as { choices?: { message?: { content?: string } }[] };
-        const textResponse = this.cleanJSON(result.choices?.[0]?.message?.content ?? '[]');
-
-        const parsed: unknown = JSON.parse(textResponse);
-        // Some models might wrap the array in a root object like { "transactions": [...] } 
-        // if we force response_format: json_object. Let's be flexible.
-        if (Array.isArray(parsed)) return this.normalizeDraft(parsed);
-        if (typeof parsed === 'object' && parsed !== null) {
-            const possibleArray = Object.values(parsed).find((v): v is unknown[] => Array.isArray(v));
-            if (possibleArray) return this.normalizeDraft(possibleArray);
-            return this.normalizeDraft([parsed]);
-        }
-        return [];
-    }
+    return error instanceof Error ? error.message : String(error);
 }

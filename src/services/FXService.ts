@@ -1,3 +1,4 @@
+import { tr } from '../i18n';
 import { requestUrl, App } from 'obsidian';
 
 export interface ExchangeRateResponse {
@@ -10,7 +11,7 @@ export interface ExchangeRateResponse {
 /** Thrown when no rate can be fetched and none is cached, for example offline. */
 export class RateUnavailableError extends Error {
     constructor() {
-        super('取不到汇率，请稍后重试或手动填写。');
+        super(tr('No exchange rate available. Try again later or enter it by hand.', '取不到汇率，请稍后重试或手动填写。'));
         this.name = 'RateUnavailableError';
     }
 }

@@ -1,6 +1,5 @@
-const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),esbuild=require('esbuild');
-const module_={exports:{}};vm.runInNewContext(esbuild.transformSync(fs.readFileSync(__dirname+'/../src/services/planning.ts','utf8'),{loader:'ts',format:'cjs'}).code,{module:module_,exports:module_.exports});
-const P=module_.exports;
+const {test}=require('node:test'),assert=require('node:assert/strict');
+const P=require('./load.cjs').load('src/services/planning.ts');
 test('budgets: one per line, amount last, total line, junk ignored',()=>{
  const b=P.parseBudgets('总计 150,000\n餐饮 / 外食 40000\n交通：12000\n没有金额\n娱乐 0');
  assert.equal(b.total,150000);assert.deepEqual({...b.categories},{'餐饮':40000,'交通':12000});

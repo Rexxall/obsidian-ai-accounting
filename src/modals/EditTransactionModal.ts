@@ -1,4 +1,5 @@
 import { Modal, App, Setting, Notice } from 'obsidian';
+import { tr } from '../i18n';
 import AccountingPlugin from '../main';
 import { TransactionRecord } from '../services/DataService';
 
@@ -19,7 +20,7 @@ export class EditTransactionModal extends Modal {
         contentEl.empty();
         this.modalEl.addClass('aa-modal');
         this.modalEl.addClass('ap', 'ap-modal');
-        this.setTitle('编辑交易');
+        this.setTitle(tr('Edit transaction', '编辑交易'));
 
         let date = this.tx.date;
         let description = this.tx.description;
@@ -28,50 +29,50 @@ export class EditTransactionModal extends Modal {
         let paymentMethod = this.tx.paymentMethod || '';
 
         new Setting(contentEl)
-            .setName('日期')
+            .setName(tr('Date', '日期'))
             .addText(text => text.setValue(date).onChange(v => date = v));
 
         new Setting(contentEl)
-            .setName('描述')
+            .setName(tr('Description', '描述'))
             .addText(text => text.setValue(description).onChange(v => description = v));
 
         new Setting(contentEl)
-            .setName('分类')
+            .setName(tr('Category', '分类'))
             .addText(text => text.setValue(category).onChange(v => category = v));
 
         new Setting(contentEl)
-            .setName('金额')
+            .setName(tr('Amount', '金额'))
             .addText(text => text.setValue(amount.toString()).onChange(v => {
                 const val = parseFloat(v);
                 if (!isNaN(val)) amount = val;
             }));
 
         new Setting(contentEl)
-            .setName('支付方式')
+            .setName(tr('Payment method', '支付方式'))
             .addText(text => text.setValue(paymentMethod).onChange(v => paymentMethod = v));
 
         const btnDiv = contentEl.createDiv({ cls: 'modal-button-container aa-edit-buttons' });
 
-        const deleteBtn = btnDiv.createEl('button', { text: '删除', cls: 'mod-warning' });
+        const deleteBtn = btnDiv.createEl('button', { text: tr('Delete', '删除'), cls: 'mod-warning' });
         let armed = false;
         deleteBtn.onclick = async () => {
             if (!armed) {
                 armed = true;
-                deleteBtn.setText('再点一次确认删除');
-                window.setTimeout(() => { armed = false; deleteBtn.setText('删除'); }, 4000);
+                deleteBtn.setText(tr('Click again to delete', '再点一次确认删除'));
+                window.setTimeout(() => { armed = false; deleteBtn.setText(tr('Delete', '删除')); }, 4000);
                 return;
             }
             {
                 try {
                 await this.plugin.dataService.deleteTransaction(this.tx);
-                new Notice('已删除');
+                new Notice(tr('Deleted.', '已删除'));
                 this.onSuccess();
                 this.close();
                 } catch (error) { new Notice((error as Error).message, 7000); }
             }
         };
 
-        const saveBtn = btnDiv.createEl('button', { text: '保存', cls: 'mod-cta' });
+        const saveBtn = btnDiv.createEl('button', { text: tr('Save', '保存'), cls: 'mod-cta' });
         saveBtn.onclick = async () => {
             try {
             const rate = date === this.tx.date ? this.tx.rate : await this.plugin.fxService.getExchangeRate(this.tx.currency, this.plugin.settings.baseCurrency, date);
@@ -86,7 +87,7 @@ export class EditTransactionModal extends Modal {
                 paymentMethod
             };
             await this.plugin.dataService.updateTransaction(this.tx, newTx);
-            new Notice('已更新');
+            new Notice(tr('Updated.', '已更新'));
             this.onSuccess();
             this.close();
             } catch (error) { new Notice((error as Error).message, 7000); }

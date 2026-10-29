@@ -1,4 +1,5 @@
 import { setIcon } from 'obsidian';
+import { isZh, tr } from './i18n';
 
 let closeOpen: (() => void) | null = null;
 
@@ -51,15 +52,15 @@ export function openDatePicker(anchor: HTMLElement, value: string, onPick: (date
         const fill = (year: number, month: number) => {
             el.empty();
             const head = el.createDiv({ cls: 'ap-popover-head' });
-            const back = head.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': '上个月' } });
+            const back = head.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': tr('Previous month', '上个月') } });
             setIcon(back, 'chevron-left');
-            head.createSpan({ text: `${year} 年 ${month + 1} 月` });
-            const forward = head.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': '下个月' } });
+            head.createSpan({ text: isZh() ? `${year} 年 ${month + 1} 月` : new Date(year, month, 1).toLocaleDateString('en', { year: 'numeric', month: 'long' }) });
+            const forward = head.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': tr('Next month', '下个月') } });
             setIcon(forward, 'chevron-right');
             back.onclick = () => (month === 0 ? fill(year - 1, 11) : fill(year, month - 1));
             forward.onclick = () => (month === 11 ? fill(year + 1, 0) : fill(year, month + 1));
             const grid = el.createDiv({ cls: 'ap-month-grid aa-day-grid' });
-            ['一', '二', '三', '四', '五', '六', '日'].forEach(name => grid.createSpan({ cls: 'ap-cap', text: name }));
+            (isZh() ? ['一', '二', '三', '四', '五', '六', '日'] : ['M', 'T', 'W', 'T', 'F', 'S', 'S']).forEach(name => grid.createSpan({ cls: 'ap-cap', text: name }));
             for (let i = 0; i < (new Date(year, month, 1).getDay() + 6) % 7; i++) grid.createSpan();
             const days = new Date(year, month + 1, 0).getDate();
             for (let day = 1; day <= days; day++) {

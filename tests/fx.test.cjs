@@ -1,5 +1,5 @@
-const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),esbuild=require('esbuild');
-function load(requestUrl){const module={exports:{}};vm.runInNewContext(esbuild.transformSync(fs.readFileSync(__dirname+'/../src/services/FXService.ts','utf8'),{loader:'ts',format:'cjs'}).code,{module,exports:module.exports,console:{log(){},warn(){},error(){}},Date,Map,JSON,Object,require:name=>name==='obsidian'?{requestUrl}:undefined});return module.exports;}
+const {test}=require('node:test'),assert=require('node:assert/strict');
+function load(requestUrl){return require('./load.cjs').load('src/services/FXService.ts',{requestUrl});}
 const app={vault:{adapter:{exists:async()=>false,read:async()=>'',write:async()=>{}}}};
 test('offline with no cached rate: a clear error the caller can show',async()=>{
  const {FXService,RateUnavailableError}=load(async()=>{throw new Error('net::ERR_INTERNET_DISCONNECTED');});

@@ -91,6 +91,11 @@
 @container (max-width: 760px) {
 	.ai-accounting-dashboard-container .aa-ledger-layout { grid-template-columns: minmax(0, 1fr); }
 }
+/* In a narrow pane, the table keeps description and amount, as on a phone; tap a row to edit it. */
+@container (max-width: 520px) {
+	.ai-accounting-dashboard-container .hide-mobile,
+	.ai-accounting-dashboard-container [data-hide="mobile"] { display: none; }
+}
 
 /* Totals */
 .ai-accounting-dashboard-container .aa-totals .aa-metric.is-main .ap-label { margin-bottom: 2px; }
@@ -291,3 +296,33 @@
 }
 .aa-review-modal .aa-review-field.is-date { justify-items: start; }
 .aa-review-modal button.aa-date-pill.is-flagged { box-shadow: 0 0 0 1px var(--ap-warn); background: var(--ap-warn-soft); }
+
+/* AI task progress, inside Obsidian's own notice. */
+.aa-task-notice { min-width: 260px; }
+.aa-task-notice .aa-task-title { font-weight: 600; }
+.aa-task-notice .aa-task-count { font-weight: 400; color: var(--text-muted); }
+.aa-task-notice .aa-task-step { margin-top: 4px; color: var(--text-muted); }
+.aa-task-notice .aa-task-step.is-error { color: var(--text-error); }
+.aa-task-notice .aa-task-bar { margin-top: 8px; height: 4px; border-radius: 2px; background: var(--background-modifier-border); overflow: hidden; }
+.aa-task-notice .aa-task-bar-fill { height: 100%; background: var(--interactive-accent); transition: width 200ms ease; }
+.aa-task-notice .aa-task-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
+@media (prefers-reduced-motion: reduce) { .aa-task-notice .aa-task-bar-fill { transition: none; } }
+
+/* Drafts waiting for review and the sample banner. */
+.ai-accounting-dashboard-container .aa-drafts,
+.ai-accounting-dashboard-container .aa-demo-banner { margin: 0 0 12px; padding: 10px 14px; border-radius: var(--ap-r-md, 10px); display: flex; flex-direction: column; gap: 6px; }
+.ai-accounting-dashboard-container .aa-demo-banner { flex-direction: row; align-items: center; gap: 12px; }
+.ai-accounting-dashboard-container .aa-drafts-title { font-weight: 600; }
+.ai-accounting-dashboard-container .aa-draft-row { display: flex; align-items: center; gap: 12px; }
+
+/* Review: type switch, leaving a row out. */
+.aa-review-modal .aa-review-field.is-kind { grid-column: 1 / -1; }
+.aa-review-modal .aa-kind-seg { align-self: flex-start; }
+.aa-review-modal .aa-review-row-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; }
+.aa-review-modal .aa-review-item.is-removed .aa-review-title,
+.aa-review-modal .aa-review-item.is-removed .aa-review-amount { text-decoration: line-through; color: var(--text-faint); }
+.ai-accounting-dashboard-container .aa-draft-row { width: 100%; }
+.ai-accounting-dashboard-container .aa-draft-row > .ap-grow,
+.ai-accounting-dashboard-container .aa-demo-banner > .ap-grow { flex: 1 1 auto; min-width: 0; }
+/* Destructive but secondary: red text, no red fill. */
+.aa-review-modal button.aa-quiet-danger { color: var(--text-error); }

@@ -6,6 +6,12 @@ import { RenameCategoryModal } from './modals/RenameCategoryModal';
 import { EditTransactionModal } from './modals/EditTransactionModal';
 import { budgetUsage, parseBudgets } from './services/planning';
 import { openDatePicker, openPopover } from './popover';
+import { spent } from './services/ledger';
+import { TransactionData } from './services/AIService';
+import { isZh, tr } from './i18n';
+
+/** Sample rows carry IDs with this prefix, so they can be removed together. */
+const DEMO_PREFIX = 'demo-sample-';
 
 Chart.register(...registerables);
 
@@ -13,8 +19,8 @@ Chart.register(...registerables);
 export const VIEW_TYPE_DASHBOARD = 'ai-accounting-dashboard';
 
 enum PanelTab {
-    Transactions = '明细',
-    Charts = '分析'
+    Transactions = 'transactions',
+    Charts = 'charts'
 }
 // 新增：图表视图范围类型
 type ChartScope = 'day' | 'month' | 'year';
@@ -69,7 +75,7 @@ export class DashboardView extends ItemView {
     }
 
     getDisplayText() {
-        return '账本';
+        return tr('Ledger', '账本');
     }
 
     getIcon() {
@@ -103,8 +109,12 @@ export class DashboardView extends ItemView {
         });
     }
 
+    /** False until the ledger has been read once; until then the empty states would be wrong. */
+    private loaded = false;
+
     async refreshData() {
         this.allStats = await this.dataService.getAllData();
+        this.loaded = true;
     }
 
     async refresh() {
@@ -160,7 +170,7 @@ export class DashboardView extends ItemView {
 
         // Convert individual transactions to build accurate aggregated stats
         for (const record of stats.transactions) {
-            const convertedAmount = await this.plugin.fxService.convert(record.baseAmount, base, target, record.date);
+            const convertedAmount = await this.plugin.fxService.convert(spent(record), base, target, record.date);
             converted.total += convertedAmount;
 
             const parts = record.category.split(/[/>:：]/);
@@ -204,8 +214,8 @@ export class DashboardView extends ItemView {
         if (relevantStats.length > 0) {
             if (this.chartScope === 'year') {
                 const yearStats = relevantStats.filter(s => s.month.startsWith(yyyy));
-                rawStats = this.aggregateStats(yearStats, `${yyyy} 年度`);
-                navLabel = `${yyyy} 年度`;
+                rawStats = this.aggregateStats(yearStats, tr(`${yyyy}`, `${yyyy} 年度`));
+                navLabel = tr(`${yyyy}`, `${yyyy} 年度`);
                 navRawStats = this.mergeAllMonths();
             } else if (this.chartScope === 'month') {
                 const monthStats = relevantStats.filter(s => s.month === yyyy_mm);
@@ -214,7 +224,7 @@ export class DashboardView extends ItemView {
                 }
                 navLabel = `${yyyy}-${mm}`;
                 const yearStats = relevantStats.filter(s => s.month.startsWith(yyyy));
-                navRawStats = this.aggregateStats(yearStats, `${yyyy} 年度`);
+                navRawStats = this.aggregateStats(yearStats, tr(`${yyyy}`, `${yyyy} 年度`));
             } else { // day
                 const monthStats = relevantStats.filter(s => s.month === yyyy_mm);
                 if (monthStats.length > 0) {
@@ -274,24 +284,24 @@ export class DashboardView extends ItemView {
     private renderHeader(container: HTMLElement, ctx: RenderContext) {
         const head = container.createDiv({ cls: 'ap-head ap-bar-glass aa-head' });
         const headMain = head.createDiv({ cls: 'ap-head-main' });
-        headMain.createDiv({ cls: 'ap-eyebrow', text: 'AI Accounting · 我的账本' });
+        headMain.createDiv({ cls: 'ap-eyebrow', text: tr('AI Accounting', 'AI Accounting · 我的账本') });
         headMain.createEl('h1', { cls: 'ap-title', text: this.formatPeriodTitle(ctx) });
 
         const actions = head.createDiv({ cls: 'ap-head-actions' });
-        const refreshBtn = actions.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': '刷新' } });
+        const refreshBtn = actions.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': tr('Refresh', '刷新') } });
         setIcon(refreshBtn, 'refresh-cw');
         refreshBtn.onclick = () => this.refresh();
-        const exportBtn = actions.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': '导出 CSV' } });
+        const exportBtn = actions.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': tr('Export CSV', '导出 CSV') } });
         setIcon(exportBtn, 'download');
         exportBtn.onclick = () => { if (ctx.rawStats) this.exportData(ctx.rawStats); };
-        const settingsBtn = actions.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': '插件设置' } });
+        const settingsBtn = actions.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': tr('Plugin settings', '插件设置') } });
         setIcon(settingsBtn, 'settings');
         settingsBtn.onclick = () => {
             const settings = (this.app as typeof this.app & { setting?: { open(): void; openTabById(id: string): void } }).setting;
             settings?.open();
             settings?.openTabById(this.plugin.manifest.id);
         };
-        const quickAddBtn = actions.createEl('button', { text: '记一笔', cls: 'mod-cta', attr: { 'aria-label': '快速录入' } });
+        const quickAddBtn = actions.createEl('button', { text: tr('Add', '记一笔'), cls: 'mod-cta', attr: { 'aria-label': tr('Quick entry', '快速录入') } });
         quickAddBtn.onclick = () => {
             const qf = container.querySelector('.quick-form-wrapper');
             if (qf) qf.classList.toggle('is-hidden');
@@ -302,19 +312,19 @@ export class DashboardView extends ItemView {
         const toolbar = container.createDiv({ cls: 'aa-toolbar' });
         const tabs = toolbar.createDiv({ cls: 'ap-seg' });
         [PanelTab.Transactions, PanelTab.Charts].forEach(key => {
-            const btn = tabs.createEl('button', { text: key, cls: this.currentTab === key ? 'is-active' : '' });
+            const btn = tabs.createEl('button', { text: key === PanelTab.Transactions ? tr('Transactions', '明细') : tr('Charts', '分析'), cls: this.currentTab === key ? 'is-active' : '' });
             btn.onclick = () => { this.currentTab = key; void this.render(); };
         });
 
         // One capsule for the period: step back or forward, or click the label to pick.
         const period = toolbar.createDiv({ cls: 'aa-period' });
-        const prevBtn = period.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': '上一段' } });
+        const prevBtn = period.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': tr('Previous', '上一段') } });
         setIcon(prevBtn, 'chevron-left');
         prevBtn.onclick = async () => { this.adjustDate(-1); await this.render(); };
-        const periodBtn = period.createEl('button', { cls: 'ap-pill-select aa-period-pill', text: this.formatPeriodTitle(ctx), attr: { 'aria-label': '选择时间', 'aria-haspopup': 'dialog' } });
+        const periodBtn = period.createEl('button', { cls: 'ap-pill-select aa-period-pill', text: this.formatPeriodTitle(ctx), attr: { 'aria-label': tr('Choose period', '选择时间'), 'aria-haspopup': 'dialog' } });
         setIcon(periodBtn.createSpan(), 'chevron-down');
         periodBtn.onclick = () => this.openPeriodPicker(periodBtn);
-        const nextBtn = period.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': '下一段' } });
+        const nextBtn = period.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': tr('Next', '下一段') } });
         setIcon(nextBtn, 'chevron-right');
         nextBtn.onclick = async () => { this.adjustDate(1); await this.render(); };
 
@@ -322,7 +332,7 @@ export class DashboardView extends ItemView {
         if (this.currentTab === PanelTab.Transactions) {
             const search = spacer.createDiv({ cls: 'ap-search aa-search' });
             setIcon(search.createSpan(), 'search');
-            const searchInput = search.createEl('input', { type: 'text', attr: { id: 'aa-search', placeholder: '搜索商户或备注（/）', 'aria-label': '搜索' } });
+            const searchInput = search.createEl('input', { type: 'text', attr: { id: 'aa-search', placeholder: tr('Search merchant or note (/)', '搜索商户或备注（/）'), 'aria-label': tr('Search', '搜索') } });
             searchInput.value = this.searchQuery;
             searchInput.oninput = () => {
                 this.searchQuery = searchInput.value || '';
@@ -334,18 +344,73 @@ export class DashboardView extends ItemView {
         const active = this.activeFilterCount();
         const filterBtn = toolbar.createEl('button', { cls: `ap-pill-select aa-filter-btn${active ? ' is-active' : ''}`, attr: { id: 'aa-filters', 'aria-haspopup': 'dialog' } });
         setIcon(filterBtn.createSpan(), 'sliders-horizontal');
-        filterBtn.appendText('筛选');
+        filterBtn.appendText(tr('Filters', '筛选'));
         if (active) filterBtn.createSpan({ cls: 'ap-pill-count', text: String(active) });
         filterBtn.onclick = () => this.openFilters(filterBtn, ctx);
 
         this.renderQuickForm(container);
+        this.renderDraftsAndDemo(container);
+    }
+
+    /** AI drafts waiting for review, and a way out of the sample rows. */
+    private renderDraftsAndDemo(container: HTMLElement) {
+        const drafts = this.plugin.settings.drafts;
+        if (drafts.length > 0) {
+            const box = container.createDiv({ cls: 'ap-notice aa-drafts' });
+            box.createDiv({ cls: 'aa-drafts-title', text: tr(`${drafts.length} AI draft(s) to review`, `${drafts.length} 份 AI 草稿待确认`) });
+            for (const draft of drafts) {
+                const row = box.createDiv({ cls: 'aa-draft-row' });
+                row.createSpan({ cls: 'ap-grow', text: tr(`${draft.source} · ${draft.rows.length} row(s)`, `${draft.source} · ${draft.rows.length} 笔`) });
+                row.createEl('button', { text: tr('Review', '核对'), cls: 'mod-cta' }).onclick = () => void this.plugin.reviewDraft(draft);
+            }
+        }
+        const demo = this.allStats.flatMap(s => s.transactions).filter(t => t.id?.startsWith(DEMO_PREFIX));
+        if (demo.length > 0) {
+            const box = container.createDiv({ cls: 'ap-notice is-accent aa-demo-banner' });
+            box.createSpan({ cls: 'ap-grow', text: tr(`You are looking at ${demo.length} sample rows. They are marked [Sample] in the ledger.`, `正在看 ${demo.length} 笔示例账目，账本里标着【示例】。`) });
+            const remove = box.createEl('button', { text: tr('Remove samples', '删除示例') });
+            remove.onclick = async () => {
+                remove.disabled = true;
+                for (const tx of demo) await this.plugin.dataService.deleteTransaction(tx);
+                new Notice(tr('Sample rows removed.', '示例账目已删除。'));
+                await this.refresh();
+            };
+        }
+    }
+
+    /** Three anonymous rows in this month: a purchase, a fare and a refund. */
+    private async loadSamples() {
+        // Samples are for an empty ledger only; read it again to be sure.
+        await this.refreshData();
+        if (this.allStats.some(st => st.transactions.length > 0)) { await this.render(); return; }
+        const jpy = this.plugin.settings.defaultInputCurrency === 'JPY';
+        const currency = jpy ? 'JPY' : this.plugin.settings.defaultInputCurrency || 'CNY';
+        const scale = jpy ? 1 : 0.05;
+        const now = new Date();
+        const day = (d: number) => `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(Math.min(d, now.getDate())).padStart(2, '0')}`;
+        const sample = tr('[Sample]', '【示例】');
+        const rows: TransactionData[] = [
+            { id: `${DEMO_PREFIX}1`, date: day(1), description: `${sample} ${tr('Convenience store lunch', '便利店午饭')}`, category: '餐饮美食 / 午餐', amount: Math.round(680 * scale * 100) / 100, currency, paymentMethod: tr('Cash', '现金') },
+            { id: `${DEMO_PREFIX}2`, date: day(2), description: `${sample} ${tr('Train pass top-up', '交通卡充值')}`, category: '交通出行 / 公共交通', amount: Math.round(3000 * scale * 100) / 100, currency, paymentMethod: tr('IC card', '交通卡') },
+            { id: `${DEMO_PREFIX}3`, date: day(3), description: `${sample} ${tr('Supermarket return', '超市退货')}`, category: '购物消费 / 日用品', amount: -Math.round(450 * scale * 100) / 100, currency, paymentMethod: tr('Credit card', '信用卡') }
+        ];
+        const userId = this.plugin.settings.currentUser || this.plugin.settings.users[0]?.id || 'default';
+        try {
+            await this.plugin.saveTransactions(rows, userId, row => row.id || '');
+        } catch (error) {
+            new Notice((error as Error).message, 7000);
+            return;
+        }
+        this.currentDate = new Date();
+        this.chartScope = 'month';
+        await this.refresh();
     }
 
     private formatPeriodTitle(ctx: RenderContext): string {
         const [y, m, d] = ctx.yyyy_mm_dd.split('-').map(part => parseInt(part, 10));
-        if (this.chartScope === 'year') return `${y} 年`;
-        if (this.chartScope === 'month') return `${y} 年 ${m} 月`;
-        return `${y} 年 ${m} 月 ${d} 日`;
+        if (this.chartScope === 'year') return tr(`${y}`, `${y} 年`);
+        if (this.chartScope === 'month') return isZh() ? `${y} 年 ${m} 月` : new Date(y ?? 1970, (m ?? 1) - 1, 1).toLocaleDateString('en', { year: 'numeric', month: 'long' });
+        return isZh() ? `${y} 年 ${m} 月 ${d} 日` : new Date(y ?? 1970, (m ?? 1) - 1, d ?? 1).toLocaleDateString('en', { year: 'numeric', month: 'long', day: 'numeric' });
     }
 
     /** Filters that narrow the ledger; the time scope and display currency are not counted. */
@@ -371,18 +436,18 @@ export class DashboardView extends ItemView {
             const fill = (year: number, month: number) => {
                 el.empty();
                 const head = el.createDiv({ cls: 'ap-popover-head' });
-                const back = head.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': '上一页' } });
+                const back = head.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': tr('Previous page', '上一页') } });
                 setIcon(back, 'chevron-left');
-                const label = this.chartScope === 'month' ? `${year} 年` : `${year - 11} – ${year} 年`;
+                const label = this.chartScope === 'month' ? tr(`${year}`, `${year} 年`) : tr(`${year - 11} – ${year}`, `${year - 11} – ${year} 年`);
                 head.createSpan({ text: label });
-                const forward = head.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': '下一页' } });
+                const forward = head.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': tr('Next page', '下一页') } });
                 setIcon(forward, 'chevron-right');
                 if (this.chartScope === 'month') {
                     back.onclick = () => fill(year - 1, month);
                     forward.onclick = () => fill(year + 1, month);
                     const grid = el.createDiv({ cls: 'ap-month-grid' });
                     for (let m = 0; m < 12; m++) {
-                        const btn = grid.createEl('button', { text: `${m + 1} 月` });
+                        const btn = grid.createEl('button', { text: isZh() ? `${m + 1} 月` : new Date(2000, m, 1).toLocaleDateString('en', { month: 'short' }) });
                         btn.toggleClass('is-selected', year === this.currentDate.getFullYear() && m === this.currentDate.getMonth());
                         btn.toggleClass('is-today', year === today.getFullYear() && m === today.getMonth());
                         btn.onclick = () => pick(new Date(year, m, 1));
@@ -426,7 +491,7 @@ export class DashboardView extends ItemView {
                 };
 
                 const scope = el.createDiv({ cls: 'ap-seg aa-filter-scope' });
-                ([['day', '日'], ['month', '月'], ['year', '年']] as const).forEach(([key, label]) => {
+                ([['day', tr('Day', '日')], ['month', tr('Month', '月')], ['year', tr('Year', '年')]] as const).forEach(([key, label]) => {
                     const btn = scope.createEl('button', { text: label, cls: this.chartScope === key ? 'is-active' : '' });
                     btn.onclick = () => {
                         this.chartScope = key;
@@ -437,26 +502,26 @@ export class DashboardView extends ItemView {
                     };
                 });
 
-                const currencies = section('显示币种');
+                const currencies = section(tr('Display currency', '显示币种'));
                 ['CNY', 'JPY', 'USD', 'EUR', 'HKD', 'GBP'].forEach(cur => chip(currencies, cur, cur === this.displayCurrency, () => { this.displayCurrency = cur; }));
 
                 if (this.plugin.settings.users.length > 1) {
-                    const users = section('成员');
-                    chip(users, '全部', this.selectedUserId === 'all', () => { this.selectedUserId = 'all'; this.selectedPrimaryCategory = null; });
+                    const users = section(tr('Members', '成员'));
+                    chip(users, tr('All', '全部'), this.selectedUserId === 'all', () => { this.selectedUserId = 'all'; this.selectedPrimaryCategory = null; });
                     this.plugin.settings.users.forEach(u => chip(users, u.name, this.selectedUserId === u.id, () => { this.selectedUserId = u.id; this.selectedPrimaryCategory = null; }));
                 }
                 const toggle = (set: Set<string>, value: string) => { if (set.has(value)) set.delete(value); else set.add(value); };
                 if (categories.size) {
-                    const cats = section('分类');
+                    const cats = section(tr('Category', '分类'));
                     [...categories].sort().forEach(cat => chip(cats, cat, this.selectedCats.has(cat), () => toggle(this.selectedCats, cat)));
                 }
                 if (methods.size) {
-                    const pms = section('支付方式');
+                    const pms = section(tr('Payment method', '支付方式'));
                     [...methods].sort().forEach(pm => chip(pms, pm, this.selectedPMs.has(pm), () => toggle(this.selectedPMs, pm)));
                 }
                 if (this.activeFilterCount() > 0) {
                     const foot = el.createDiv({ cls: 'aa-filter-foot' });
-                    const clear = foot.createEl('button', { text: '清除筛选' });
+                    const clear = foot.createEl('button', { text: tr('Clear filters', '清除筛选') });
                     clear.onclick = () => {
                         this.selectedCats.clear();
                         this.selectedPMs.clear();
@@ -474,20 +539,20 @@ export class DashboardView extends ItemView {
         // Quick Form Wrapper (same as before)
         const quickFormWrapper = container.createDiv({ cls: 'quick-form-wrapper is-hidden' });
         const qForm = quickFormWrapper.createDiv({ cls: 'quick-form-inline' });
-        const dateInput = qForm.createEl('input', { type: 'date', attr: { id: 'aa-quick-date', 'aria-label': '交易日期' } });
+        const dateInput = qForm.createEl('input', { type: 'date', attr: { id: 'aa-quick-date', 'aria-label': tr('Date', '交易日期') } });
         const today = new Date();
         dateInput.value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-        const amountInput = qForm.createEl('input', { type: 'number', attr: { placeholder: '金额', step: '0.01' } });
+        const amountInput = qForm.createEl('input', { type: 'number', attr: { placeholder: tr('Amount', '金额'), step: '0.01' } });
         const currInput = qForm.createEl('select');
         ['CNY', 'JPY', 'USD', 'EUR', 'HKD', 'GBP'].forEach(c => { const o = currInput.createEl('option', { text: c, value: c }); if (c === this.plugin.settings.defaultInputCurrency) o.selected = true; });
-        const catInput = qForm.createEl('input', { type: 'text', attr: { placeholder: '分类' } });
-        const pmInput = qForm.createEl('input', { type: 'text', attr: { placeholder: '支付方式' } });
-        const descInput = qForm.createEl('input', { type: 'text', attr: { placeholder: '描述' } });
+        const catInput = qForm.createEl('input', { type: 'text', attr: { placeholder: tr('Category', '分类') } });
+        const pmInput = qForm.createEl('input', { type: 'text', attr: { placeholder: tr('Payment method', '支付方式') } });
+        const descInput = qForm.createEl('input', { type: 'text', attr: { placeholder: tr('Description', '描述') } });
         const isSplitInput = qForm.createDiv({ cls: 'quick-add-toggle' });
         const splitCheckbox = isSplitInput.createEl('input', { type: 'checkbox', attr: { id: 'aa-split' } });
-        isSplitInput.createEl('label', { text: '平摊分账', attr: { for: 'aa-split' } });
+        isSplitInput.createEl('label', { text: tr('Split evenly', '平摊分账'), attr: { for: 'aa-split' } });
 
-        const addBtn = qForm.createEl('button', { text: '添加', cls: 'mod-cta' });
+        const addBtn = qForm.createEl('button', { text: tr('Add', '添加'), cls: 'mod-cta' });
         addBtn.onclick = async () => {
             const date = dateInput.value || new Date().toISOString().slice(0, 10);
             const amount = parseFloat(amountInput.value || '0');
@@ -521,10 +586,10 @@ export class DashboardView extends ItemView {
                         user.id
                     );
                 }
-                new Notice(`已为 ${users.length} 位成员添加 AA 账单`);
+                new Notice(tr(`Added a split entry for ${users.length} members.`, `已为 ${users.length} 位成员添加 AA 账单`));
             } else {
                 await this.plugin.dataService.appendBatchToMonthlyReport(yearMonth, [{ date, description: descInput.value || '', category: catInput.value || '其他', amount, currency, baseAmount, rate, paymentMethod: pmInput.value || '未分类' }], this.selectedUserId !== 'all' ? this.selectedUserId : this.plugin.settings.currentUser);
-                new Notice('已添加');
+                new Notice(tr('Added.', '已添加'));
             }
 
             amountInput.value = ''; descInput.value = '';
@@ -534,16 +599,34 @@ export class DashboardView extends ItemView {
 
     private async renderGrid(dashboardGrid: HTMLElement, ctx: RenderContext) {
         const { rawStats, navRawStats, navLabel } = ctx;
+        if (!this.loaded) {
+            dashboardGrid.createDiv({ cls: 'ap-card aa-empty-state' }).createEl('p', { cls: 'ap-sub', text: tr('Reading the ledger…', '正在读取账本…') });
+            return;
+        }
         if (this.allStats.length === 0 || !rawStats) {
+            // One next step per state: an empty ledger gets samples, an empty period goes to the latest month with rows.
             const empty = dashboardGrid.createDiv({ cls: 'ap-card aa-empty-state' });
-            empty.createEl('h2', { cls: 'ap-title', text: this.allStats.length === 0 ? '从第一笔记录开始' : '这个时间范围还没有记录' });
-            empty.createEl('p', { cls: 'ap-sub', text: '可以直接录入一笔支出，或用上方日期选择器查看其他月份。已有账单也可以通过 AI 收件箱提取，核对后入账。' });
-            const add = empty.createEl('button', { text: '录入一笔支出', cls: 'mod-cta' });
-            add.onclick = () => {
-                const form = this.contentEl.querySelector('.quick-form-wrapper');
-                form?.classList.remove('is-hidden');
-                (form?.querySelector('input[type="number"]') as HTMLInputElement | null)?.focus();
-            };
+            if (this.allStats.every(s => s.transactions.length === 0)) {
+                empty.createEl('h2', { cls: 'ap-title', text: tr('No entries yet', '还没有账目') });
+                empty.createEl('p', { cls: 'ap-sub', text: tr('See what the ledger looks like with three sample rows (marked as samples, removable in one click). To record your own, use "Add" above; to read receipts with AI, add a service in settings.', '先载入三笔示例看看效果（标着示例，一键就能删）。记自己的账点上方“记一笔”；想用 AI 识别票据，到设置里加一个 AI 服务。') });
+                const load = empty.createEl('button', { text: tr('Load samples', '载入示例'), cls: 'mod-cta' });
+                load.onclick = () => {
+                    // Converting the samples needs an exchange rate, which can take a moment.
+                    load.disabled = true;
+                    load.setText(tr('Loading…', '正在载入…'));
+                    void this.loadSamples();
+                };
+            } else {
+                const latest = this.allStats.filter(s => s.transactions.length > 0).map(s => s.month).sort().pop();
+                empty.createEl('h2', { cls: 'ap-title', text: tr('Nothing in this period', '这段时间没有记录') });
+                empty.createEl('p', { cls: 'ap-sub', text: latest ? tr(`The latest entries are in ${latest}.`, `最近的记录在 ${latest}。`) : '' });
+                if (latest) empty.createEl('button', { text: tr(`Go to ${latest}`, `去 ${latest}`), cls: 'mod-cta' }).onclick = () => {
+                    const [y, m] = latest.split('-').map(Number);
+                    this.currentDate = new Date(y ?? new Date().getFullYear(), (m ?? 1) - 1, 1);
+                    this.chartScope = 'month';
+                    void this.render();
+                };
+            }
             return;
         }
 
@@ -567,21 +650,21 @@ export class DashboardView extends ItemView {
         const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 7);
         const weekTx = allTx.filter(t => { const d = new Date(t.date); return d >= weekStart && d < weekEnd; });
         const [todayTotal, weekTotal] = await Promise.all([
-            Promise.all(todayTx.map(t => this.plugin.fxService.convert(t.baseAmount, baseCur, targetCur, t.date))).then(arr => arr.reduce((a, b) => a + b, 0)),
-            Promise.all(weekTx.map(t => this.plugin.fxService.convert(t.baseAmount, baseCur, targetCur, t.date))).then(arr => arr.reduce((a, b) => a + b, 0))
+            Promise.all(todayTx.map(t => this.plugin.fxService.convert(spent(t), baseCur, targetCur, t.date))).then(arr => arr.reduce((a, b) => a + b, 0)),
+            Promise.all(weekTx.map(t => this.plugin.fxService.convert(spent(t), baseCur, targetCur, t.date))).then(arr => arr.reduce((a, b) => a + b, 0))
         ]);
 
         const renderTotals = (parent: HTMLElement) => {
             const card = parent.createDiv({ cls: 'ap-card aa-totals' });
-            const total = this.createMetricCard(card, '期间支出', this.formatAmount(displayStats.total), this.displayCurrency, 'is-main');
+            const total = this.createMetricCard(card, tr('Spent in period', '期间支出'), this.formatAmount(displayStats.total), this.displayCurrency, 'is-main');
             total.labelEl.id = 'aa-dynamic-total-label';
             total.valEl.id = 'aa-dynamic-total-val';
             const minor = card.createDiv({ cls: 'aa-minor-metrics' });
-            const count = this.createMetricCard(minor, '交易笔数', displayStats.transactions.length.toString(), '笔');
+            const count = this.createMetricCard(minor, tr('Transactions', '交易笔数'), displayStats.transactions.length.toString(), tr('', '笔'));
             count.labelEl.id = 'aa-dynamic-count-label';
             count.valEl.id = 'aa-dynamic-count-val';
-            this.createMetricCard(minor, '今日', this.formatAmount(todayTotal), this.displayCurrency);
-            this.createMetricCard(minor, '本周', this.formatAmount(weekTotal), this.displayCurrency);
+            this.createMetricCard(minor, tr('Today', '今日'), this.formatAmount(todayTotal), this.displayCurrency);
+            this.createMetricCard(minor, tr('This week', '本周'), this.formatAmount(weekTotal), this.displayCurrency);
         };
 
         if (this.currentTab === PanelTab.Transactions) {
@@ -593,10 +676,10 @@ export class DashboardView extends ItemView {
             this.renderBudget(aside, allTx);
 
             const where = aside.createDiv({ cls: 'ap-card is-flat aa-where' });
-            where.createDiv({ cls: 'ap-label', text: '花在哪' });
-            const cats = Object.entries(displayStats.categories).sort((a, b) => b[1] - a[1]);
+            where.createDiv({ cls: 'ap-label', text: tr('Where it went', '花在哪') });
+            const cats = Object.entries(displayStats.categories).filter(([, v]) => v !== 0).sort((a, b) => b[1] - a[1]);
             const colors = this.seriesColors();
-            if (cats.length === 0) where.createDiv({ cls: 'ap-cap', text: '暂无数据' });
+            if (cats.length === 0) where.createDiv({ cls: 'ap-cap', text: tr('No data yet', '暂无数据') });
             cats.forEach(([cat, val], index) => {
                 const row = where.createDiv({ cls: `ap-line aa-where-row${this.selectedCats.has(cat) ? ' is-active' : ''}` });
                 row.createSpan({ cls: 'ap-dot' }).setCssProps({ background: colors[index % colors.length] || '' });
@@ -617,28 +700,28 @@ export class DashboardView extends ItemView {
 
             const chartCard = charts.createDiv({ cls: 'ap-card aa-chart-card' });
             const chartHead = chartCard.createDiv({ cls: 'aa-card-head' });
-            chartHead.createDiv({ cls: 'ap-label', text: this.selectedPrimaryCategory ? `${this.selectedPrimaryCategory} · 子分类` : '支出分类' });
+            chartHead.createDiv({ cls: 'ap-label', text: this.selectedPrimaryCategory ? tr(`${this.selectedPrimaryCategory} · subcategories`, `${this.selectedPrimaryCategory} · 子分类`) : tr('Spending by category', '支出分类') });
             if (this.selectedPrimaryCategory) {
-                const backBtn = chartHead.createEl('button', { text: '← 返回主分类', cls: 'aa-link-btn' });
+                const backBtn = chartHead.createEl('button', { text: tr('← Back to categories', '← 返回主分类'), cls: 'aa-link-btn' });
                 backBtn.onclick = () => { this.selectedPrimaryCategory = null; void this.render(); };
             }
             const canvas = chartCard.createDiv({ cls: 'aa-chart' }).createEl('canvas');
             this.renderCategoryChart(canvas, displayStats);
-            chartCard.createDiv({ cls: 'ap-cap', text: '点分类看子分类；按住 ⌥ 或 ⌘ 点击可以重命名分类。' });
+            chartCard.createDiv({ cls: 'ap-cap', text: tr('Click a category for its subcategories; ⌥ or ⌘ click to rename it.', '点分类看子分类；按住 ⌥ 或 ⌘ 点击可以重命名分类。') });
 
             const trendCard = charts.createDiv({ cls: 'ap-card aa-chart-card' });
-            trendCard.createDiv({ cls: 'ap-label', text: '月度趋势' });
+            trendCard.createDiv({ cls: 'ap-label', text: tr('Monthly trend', '月度趋势') });
             const trendCanvas = trendCard.createDiv({ cls: 'aa-chart' }).createEl('canvas');
             void this.renderTrendChart(trendCanvas, this.allStats);
 
             const paymentCard = charts.createDiv({ cls: 'ap-card aa-chart-card' });
-            paymentCard.createDiv({ cls: 'ap-label', text: '支付方式' });
+            paymentCard.createDiv({ cls: 'ap-label', text: tr('Payment method', '支付方式') });
             const paymentCanvas = paymentCard.createDiv({ cls: 'aa-chart' }).createEl('canvas');
             this.renderPaymentMethodChart(paymentCanvas, displayStats);
 
             if (this.selectedUserId === 'all' && this.plugin.settings.users.length > 1) {
                 const contribCard = charts.createDiv({ cls: 'ap-card aa-chart-card' });
-                contribCard.createDiv({ cls: 'ap-label', text: '成员' });
+                contribCard.createDiv({ cls: 'ap-label', text: tr('Members', '成员') });
                 const contribCanvas = contribCard.createDiv({ cls: 'aa-chart' }).createEl('canvas');
                 this.renderContributionChart(contribCanvas, rawStats);
             }
@@ -670,7 +753,7 @@ export class DashboardView extends ItemView {
     }
 
     private exportData(stats: MonthlyStats) {
-        const header = ['日期', '描述', '分类', '金额', '币种', '汇率', '基准金额', '支付方式'];
+        const header = [tr('Date', '日期'), tr('Description', '描述'), tr('Category', '分类'), tr('Amount', '金额'), '币种', '汇率', '基准金额', tr('Payment method', '支付方式')];
         const rows = stats.transactions.map(t => [t.date, t.description, t.category, t.amount.toFixed(2), t.currency, (t.rate || 1).toString(), t.baseAmount.toFixed(2), t.paymentMethod || '未分类']);
         const csv = [header.join(','), ...rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))].join('\n');
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -715,13 +798,13 @@ export class DashboardView extends ItemView {
         const detailsCard = parent.createDiv({ cls: 'aa-ledger' });
 
         const analysis = aside.createEl('details', { cls: 'ap-card is-flat aa-analysis' });
-        analysis.createEl('summary', { cls: 'ap-label', text: '按周期看 · 分类细分' });
+        analysis.createEl('summary', { cls: 'ap-label', text: tr('By period · categories', '按周期看 · 分类细分') });
         const rightPanel = analysis.createDiv('aa-analysis-body');
 
         // --- Scope-aware navigation ---
         const navCard = rightPanel.createDiv({ cls: 'aa-nav-card' });
-        const navTitle = this.chartScope === 'day' ? '每日开支' :
-            this.chartScope === 'month' ? '月度开支' : '年度开支';
+        const navTitle = this.chartScope === 'day' ? tr('Daily spending', '每日开支') :
+            this.chartScope === 'month' ? tr('Monthly spending', '月度开支') : tr('Yearly spending', '年度开支');
         navCard.createDiv({ cls: 'ap-cap', text: navTitle });
 
         const navTable = navCard.createEl('table', { cls: 'aa-table is-compact' });
@@ -745,8 +828,8 @@ export class DashboardView extends ItemView {
             return th;
         };
 
-        createNavSortHeader('周期', 'period');
-        createNavSortHeader('金额', 'amount');
+        createNavSortHeader(tr('Period', '周期'), 'period');
+        createNavSortHeader(tr('Amount', '金额'), 'amount');
 
         const navTbody = navTable.createEl('tbody');
 
@@ -826,21 +909,21 @@ export class DashboardView extends ItemView {
 
         if (this.selectedSecondaryCategory && this.selectedDailyCategory) {
             chartCard.createDiv({ cls: 'ap-cap', text: `${displayDate} · ${this.selectedDailyCategory} › ${this.selectedSecondaryCategory}` });
-            const backBtn = chartCard.createEl('button', { text: '← 返回 ' + this.selectedDailyCategory, cls: 'aa-link-btn' });
+            const backBtn = chartCard.createEl('button', { text: tr(`← Back to ${this.selectedDailyCategory}`, `← 返回 ${this.selectedDailyCategory}`), cls: 'aa-link-btn' });
             backBtn.onclick = () => {
                 this.selectedSecondaryCategory = null;
                 void this.render();
             };
         } else if (this.selectedDailyCategory) {
             chartCard.createDiv({ cls: 'ap-cap', text: `${displayDate} · ${this.selectedDailyCategory}` });
-            const backBtn = chartCard.createEl('button', { text: '← 返回全部分类', cls: 'aa-link-btn' });
+            const backBtn = chartCard.createEl('button', { text: tr('← Back to all categories', '← 返回全部分类'), cls: 'aa-link-btn' });
             backBtn.onclick = () => {
                 this.selectedDailyCategory = null;
                 this.selectedSecondaryCategory = null;
                 void this.render();
             };
         } else {
-            chartCard.createDiv({ cls: 'ap-cap', text: displayDate ? `${displayDate} 分类统计` : '每日明细' });
+            chartCard.createDiv({ cls: 'ap-cap', text: displayDate ? tr(`${displayDate} by category`, `${displayDate} 分类统计`) : tr('Daily detail', '每日明细') });
         }
 
         if (displayDate) {
@@ -905,8 +988,8 @@ export class DashboardView extends ItemView {
 
                 // Batch Action Bar
                 const batchBar = detailsCard.createDiv({ cls: 'ap-notice aa-batch-bar' });
-                const batchCount = batchBar.createSpan({ cls: 'ap-grow', text: '已选择 0 项' });
-                const batchSplitBtn = batchBar.createEl('button', { text: '批量分账', cls: 'mod-cta' });
+                const batchCount = batchBar.createSpan({ cls: 'ap-grow', text: tr('0 selected', '已选择 0 项') });
+                const batchSplitBtn = batchBar.createEl('button', { text: tr('Split selected', '批量分账'), cls: 'mod-cta' });
 
                 const selectedSet = new Set<string>();
 
@@ -936,14 +1019,14 @@ export class DashboardView extends ItemView {
                         totalAmt += displayAmt;
                     }
 
-                    labelTotal.innerText = isSelecting ? '已选总和' : '期间支出';
+                    labelTotal.innerText = isSelecting ? tr('Selected total', '已选总和') : tr('Spent in period', '期间支出');
                     valTotal.innerText = this.formatAmount(totalAmt);
                     
-                    labelCount.innerText = isSelecting ? '选中笔数' : '匹配笔数';
+                    labelCount.innerText = isSelecting ? tr('Selected', '选中笔数') : tr('Matching', '匹配笔数');
                     valCount.innerText = targetTransactions.length.toString();
 
                     if (isSelecting) {
-                        batchCount.innerText = `已选择 ${selectedSet.size} 项`;
+                        batchCount.innerText = tr(`${selectedSet.size} selected`, `已选择 ${selectedSet.size} 项`);
                         batchBar.addClass('is-visible');
                     } else {
                         batchBar.removeClass('is-visible');
@@ -965,7 +1048,7 @@ export class DashboardView extends ItemView {
                     const detailTable = detailsCard.querySelector('.aa-table');
                     if (detailTable) detailsCard.insertBefore(panel, detailTable);
 
-                    panel.createDiv({ cls: 'ap-label', text: `批量分账 · ${selectedSet.size} 笔` });
+                    panel.createDiv({ cls: 'ap-label', text: tr(`Split · ${selectedSet.size} rows`, `批量分账 · ${selectedSet.size} 笔`) });
 
                     const userChecks: Record<string, HTMLInputElement> = {};
                     const usersContainer = panel.createDiv({ cls: 'aa-split-users is-inline' });
@@ -979,7 +1062,7 @@ export class DashboardView extends ItemView {
                     });
 
                     const actionContainer = panel.createDiv({ cls: 'ap-actions aa-split-actions' });
-                    const confirmBtn = actionContainer.createEl('button', { text: '确认批量分账', cls: 'mod-cta' });
+                    const confirmBtn = actionContainer.createEl('button', { text: tr('Split them', '确认批量分账'), cls: 'mod-cta' });
 
                     confirmBtn.onclick = async () => {
                         const participants = this.plugin.settings.users.filter(u => {
@@ -987,11 +1070,11 @@ export class DashboardView extends ItemView {
                             return chk && chk.checked;
                         });
                         if (participants.length <= 1) {
-                            new Notice('分账至少需要 2 人参与');
+                            new Notice(tr('A split needs at least two people.', '分账至少需要 2 人参与'));
                             return;
                         }
 
-                        new Notice(`开始批量处理 ${selectedSet.size} 笔交易...`);
+                        new Notice(tr(`Splitting ${selectedSet.size} rows…`, `开始批量处理 ${selectedSet.size} 笔交易...`));
 
                         for (const tx of filteredTransactions) {
                             if (!selectedSet.has(JSON.stringify(tx))) continue;
@@ -1012,12 +1095,12 @@ export class DashboardView extends ItemView {
                             }
                         }
 
-                        new Notice('批量分账完成！');
+                        new Notice(tr('Split done.', '批量分账完成！'));
                         panel.remove();
                         await this.refresh();
                     };
 
-                    const cancelBtn = actionContainer.createEl('button', { text: '取消' });
+                    const cancelBtn = actionContainer.createEl('button', { text: tr('Cancel', '取消') });
                     cancelBtn.onclick = () => panel.remove();
                 };
 
@@ -1063,12 +1146,12 @@ export class DashboardView extends ItemView {
                     return th;
                 };
 
-                createSortHeader('日期', 'date', '100px', 'date-col hide-mobile').setAttribute('data-hide', 'mobile');
-                createSortHeader('描述', 'description');
-                createSortHeader('分类', 'category', undefined, 'hide-mobile').setAttribute('data-hide', 'mobile');
-                createSortHeader('金额', 'amount', undefined, 'is-right');
-                createSortHeader('支付方式', 'paymentMethod', undefined, 'hide-mobile').setAttribute('data-hide', 'mobile');
-                detailHeaderRow.createEl('th', { text: '操作', cls: 'hide-mobile', attr: { 'data-hide': 'mobile' } });
+                createSortHeader(tr('Date', '日期'), 'date', '100px', 'date-col hide-mobile').setAttribute('data-hide', 'mobile');
+                createSortHeader(tr('Description', '描述'), 'description');
+                createSortHeader(tr('Category', '分类'), 'category', undefined, 'hide-mobile').setAttribute('data-hide', 'mobile');
+                createSortHeader(tr('Amount', '金额'), 'amount', undefined, 'is-right');
+                createSortHeader(tr('Payment method', '支付方式'), 'paymentMethod', undefined, 'hide-mobile').setAttribute('data-hide', 'mobile');
+                detailHeaderRow.createEl('th', { text: tr('Actions', '操作'), cls: 'hide-mobile', attr: { 'data-hide': 'mobile' } });
 
                 const detailTbody = detailTable.createEl('tbody');
                 // Same date, description and amount more than once: real repeat purchases, kept apart on purpose.
@@ -1119,7 +1202,7 @@ export class DashboardView extends ItemView {
                     }
                     descTd.createSpan({ text: tx.description });
                     const twins = twinCounts.get(`${tx.userId}|${tx.date}|${tx.description}|${tx.amount}|${tx.currency}`) || 0;
-                    if (twins > 1) descTd.createSpan({ cls: 'ap-pill is-good aa-twin', text: `同价 ×${twins}，分别保留` });
+                    if (twins > 1) descTd.createSpan({ cls: 'ap-pill is-good aa-twin', text: tr(`Same amount ×${twins}, kept apart`, `同价 ×${twins}，分别保留`) });
 
                     descTd.ondblclick = () => this.makeCellEditable(descTd, tx, 'description');
 
@@ -1147,7 +1230,7 @@ export class DashboardView extends ItemView {
                     if (day) day.total += displayAmt;
                     amountTd.ondblclick = () => {
                         if (this.displayCurrency !== tx.currency) {
-                            new Notice('请切换回原始币种进行编辑金额');
+                            new Notice(tr('Switch back to the original currency to edit the amount.', '请切换回原始币种进行编辑金额'));
                             return;
                         }
                         this.makeCellEditable(amountTd, tx, 'amount');
@@ -1158,7 +1241,7 @@ export class DashboardView extends ItemView {
                     const actionsCell = row.createEl('td', { cls: 'action-cell hide-mobile', attr: { 'data-hide': 'mobile' } });
 
                     // AA Button
-                    const aaBtn = actionsCell.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': '分账' } });
+                    const aaBtn = actionsCell.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': tr('Split', '分账') } });
                     setIcon(aaBtn, 'users');
                     if (tx.description.includes('(AA)')) {
                         aaBtn.disabled = true;
@@ -1170,7 +1253,7 @@ export class DashboardView extends ItemView {
 
                         const ownerId = tx.userId || 'default';
                         const panel = actionsCell.createDiv({ cls: 'ap-card aa-split-panel inline-aa-panel' });
-                        panel.createDiv({ cls: 'ap-label', text: `发起分账 · 总金额 ${tx.amount}` });
+                        panel.createDiv({ cls: 'ap-label', text: tr(`Split · total ${tx.amount}`, `发起分账 · 总金额 ${tx.amount}`) });
 
                         const userChecks: Record<string, HTMLInputElement> = {};
                         const userInputs: Record<string, HTMLInputElement> = {};
@@ -1216,7 +1299,7 @@ export class DashboardView extends ItemView {
                             const label = row.createEl('label', { cls: 'aa-split-user ap-grow' });
                             const chk = label.createEl('input', { type: 'checkbox' });
                             chk.checked = true; // default all checked
-                            label.createSpan({ text: u.name + (isOwner ? ' (付款方)' : '') });
+                            label.createSpan({ text: u.name + (isOwner ? tr(' (payer)', ' (付款方)') : '') });
                             userChecks[u.id] = chk;
 
                             const input = row.createEl('input', { type: 'number', cls: 'aa-split-amount', attr: { step: '0.01', min: '0' } });
@@ -1241,10 +1324,10 @@ export class DashboardView extends ItemView {
 
                         const actionContainer = panel.createDiv({ cls: 'ap-actions aa-split-actions' });
 
-                        const equalBtn = actionContainer.createEl('button', { text: '重置平分' });
+                        const equalBtn = actionContainer.createEl('button', { text: tr('Reset to even split', '重置平分') });
                         equalBtn.onclick = () => recalculateEqual();
 
-                        const confirmBtn = actionContainer.createEl('button', { text: '确认分账', cls: 'mod-cta' });
+                        const confirmBtn = actionContainer.createEl('button', { text: tr('Split it', '确认分账'), cls: 'mod-cta' });
                         confirmBtn.onclick = async () => {
                             const othersArray: { userId: string, amount: number }[] = [];
                             let totalSplitOut = 0;
@@ -1253,7 +1336,7 @@ export class DashboardView extends ItemView {
                                 if (u.id !== ownerId && userChecks[u.id]?.checked && userInputs[u.id]) {
                                     const val = parseFloat(userInputs[u.id]!.value);
                                     if (isNaN(val) || val < 0) {
-                                        new Notice(`请为 ${u.name} 输入有效金额`);
+                                        new Notice(tr(`Enter a valid amount for ${u.name}.`, `请为 ${u.name} 输入有效金额`));
                                         return;
                                     }
                                     if (val > 0) {
@@ -1264,43 +1347,50 @@ export class DashboardView extends ItemView {
                             }
 
                             if (othersArray.length === 0) {
-                                new Notice('未设定任何其他人的分账金额');
+                                new Notice(tr('No amount set for anyone else.', '未设定任何其他人的分账金额'));
                                 return;
                             }
                             
                             if (totalSplitOut > tx.amount + 0.01) {
-                                new Notice('分账总额超过了这笔交易的总金额！');
+                                new Notice(tr('The split adds up to more than the transaction.', '分账总额超过了这笔交易的总金额！'));
                                 return;
                             }
 
                             await this.plugin.dataService.splitTransaction(tx, othersArray);
-                            new Notice('分账成功');
+                            new Notice(tr('Split saved.', '分账成功'));
                             panel.remove();
                             await this.refresh();
                         };
 
-                        const cancelBtn = actionContainer.createEl('button', { text: '取消' });
+                        const cancelBtn = actionContainer.createEl('button', { text: tr('Cancel', '取消') });
                         cancelBtn.onclick = () => panel.remove();
                     };
 
                     // Edit Button
-                    const editBtn = actionsCell.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': '编辑' } });
+                    const editBtn = actionsCell.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': tr('Edit', '编辑') } });
                     setIcon(editBtn, 'pencil');
-                    editBtn.onclick = () => {
+                    const openEditor = () => {
                         new EditTransactionModal(this.app, tx, this.plugin, () => {
                             void this.refresh();
                         }).open();
                     };
+                    editBtn.onclick = openEditor;
+                    // On a phone or in a narrow pane the actions column is hidden: tapping the row edits it.
+                    row.addEventListener('click', event => {
+                        if (actionsCell.offsetParent !== null) return;
+                        if ((event.target as HTMLElement).closest('input, button, a, select')) return;
+                        openEditor();
+                    });
 
                     // Open note link
-                    const openBtn = actionsCell.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': '在新标签页打开源文件' } });
+                    const openBtn = actionsCell.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': tr('Open the ledger file in a new tab', '在新标签页打开源文件') } });
                     setIcon(openBtn, 'external-link');
                     openBtn.onclick = async () => {
                         const file = this.plugin.dataService.getLocationFile(tx);
                         if (file) {
                             await this.app.workspace.getLeaf('tab').openFile(file);
                         } else {
-                            new Notice('未找到源文件');
+                            new Notice(tr('Ledger file not found.', '未找到源文件'));
                         }
                     };
                 }
@@ -1327,25 +1417,25 @@ export class DashboardView extends ItemView {
                 dateEntryInput.value = defaultAddDate;
 
                 const descTd = addRow.createEl('td');
-                const descInput = descTd.createEl('input', { type: 'text', attr: { placeholder: '新账目描述...' } });
+                const descInput = descTd.createEl('input', { type: 'text', attr: { placeholder: tr('New entry…', '新账目描述...') } });
 
                 const catTd = addRow.createEl('td', { cls: 'hide-mobile', attr: { 'data-hide': 'mobile' } });
-                const catInput = catTd.createEl('input', { type: 'text', attr: { placeholder: '分类' } });
+                const catInput = catTd.createEl('input', { type: 'text', attr: { placeholder: tr('Category', '分类') } });
 
                 const amountTd = addRow.createEl('td');
-                const amountInput = amountTd.createEl('input', { type: 'number', attr: { placeholder: '金额', step: '0.01' } });
+                const amountInput = amountTd.createEl('input', { type: 'number', attr: { placeholder: tr('Amount', '金额'), step: '0.01' } });
 
                 const payTd = addRow.createEl('td', { cls: 'hide-mobile', attr: { 'data-hide': 'mobile' } });
-                const payInput = payTd.createEl('input', { type: 'text', attr: { placeholder: '支付方式' } });
+                const payInput = payTd.createEl('input', { type: 'text', attr: { placeholder: tr('Payment method', '支付方式') } });
 
                 const actionsCell = addRow.createEl('td', { cls: 'action-cell hide-mobile', attr: { 'data-hide': 'mobile' } });
-                const saveBtn = actionsCell.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': '快速添加' } });
+                const saveBtn = actionsCell.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': tr('Quick add', '快速添加') } });
                 setIcon(saveBtn, 'plus-circle');
 
                 const handleAdd = async () => {
                     const amount = parseFloat(amountInput.value);
                     if (!amount || amount <= 0) {
-                        new Notice('请输入有效金额');
+                        new Notice(tr('Enter a valid amount.', '请输入有效金额'));
                         return;
                     }
                     const desc = descInput.value || '未命名交易';
@@ -1370,7 +1460,7 @@ export class DashboardView extends ItemView {
                         paymentMethod: payment
                     }]);
 
-                    new Notice('账目已添加');
+                    new Notice(tr('Entry added.', '账目已添加'));
                     await this.refresh();
                 };
 
@@ -1379,10 +1469,10 @@ export class DashboardView extends ItemView {
                     input.onkeydown = (e) => { if (e.key === 'Enter') void handleAdd(); };
                 });
             } else {
-                detailsCard.createDiv({ cls: 'ap-cap', text: '暂无交易记录' });
+                detailsCard.createDiv({ cls: 'ap-cap', text: tr('No transactions yet', '暂无交易记录') });
             }
         } else {
-            chartCard.createDiv({ cls: 'ap-cap', text: '点上面的周期查看明细' });
+            chartCard.createDiv({ cls: 'ap-cap', text: tr('Click a period above to see its rows', '点上面的周期查看明细') });
         }
     }
 
@@ -1397,14 +1487,14 @@ export class DashboardView extends ItemView {
         const month = new Date().toISOString().slice(0, 7);
         const card = parent.createDiv({ cls: 'ap-card is-flat aa-budget' });
         const head = card.createDiv({ cls: 'ap-split' });
-        head.createDiv({ cls: 'ap-label', text: `本月预算 · ${settings.baseCurrency}` });
+        head.createDiv({ cls: 'ap-label', text: tr(`Budget this month · ${settings.baseCurrency}`, `本月预算 · ${settings.baseCurrency}`) });
         if (hasRecurring) {
-            const add = head.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': '添加本月固定支出' } });
+            const add = head.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': tr('Add this month\'s recurring expenses', '添加本月固定支出') } });
             setIcon(add, 'calendar-plus');
             add.onclick = () => void this.plugin.addRecurringForMonth(month);
         }
         if (!hasBudgets) {
-            card.createDiv({ cls: 'ap-cap', text: '在设置 → 月度预算里填写后，这里显示本月用了多少。' });
+            card.createDiv({ cls: 'ap-cap', text: tr('Fill in Settings → Monthly budget to see how much of it this month has used.', '在设置 → 月度预算里填写后，这里显示本月用了多少。') });
             return;
         }
         const usage = budgetUsage(allTx, month, budgets);
@@ -1417,7 +1507,7 @@ export class DashboardView extends ItemView {
             line.createSpan({ cls: `ap-amt aa-budget-amt ${tone}`, text: `${this.formatAmount(row.spent)} / ${this.formatAmount(row.limit)}` });
             const meter = item.createDiv({ cls: `ap-meter ${tone}` });
             meter.createDiv({ cls: 'ap-meter-fill' }).setCssProps({ '--ap-value': `${Math.min(row.ratio, 1) * 100}%` });
-            if (row.ratio > 1) item.createDiv({ cls: 'ap-cap aa-budget-over', text: `超出 ${this.formatAmount(row.spent - row.limit)}` });
+            if (row.ratio > 1) item.createDiv({ cls: 'ap-cap aa-budget-over', text: tr(`Over by ${this.formatAmount(row.spent - row.limit)}`, `超出 ${this.formatAmount(row.spent - row.limit)}`) });
         }
     }
 
@@ -1447,7 +1537,7 @@ export class DashboardView extends ItemView {
         const dict: Record<string, number> = {};
 
         void Promise.all(scopedTransactions.map(async t => {
-            const converted = await this.plugin.fxService.convert(t.baseAmount, base, target, t.date);
+            const converted = await this.plugin.fxService.convert(spent(t), base, target, t.date);
             const parts = t.category.split(/[/>:：]/);
             const primary = (parts[0] || '其他').trim();
             const secondary = (parts[1] || '一般').trim();
@@ -1547,7 +1637,9 @@ export class DashboardView extends ItemView {
 
     private formatDayLabel(date: string): string {
         const [y, m, d] = date.split('-').map(part => parseInt(part, 10));
-        const weekday = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][new Date(y || 1970, (m || 1) - 1, d || 1).getDay()];
+        const when = new Date(y || 1970, (m || 1) - 1, d || 1);
+        if (!isZh()) return when.toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' });
+        const weekday = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][when.getDay()];
         return `${m} 月 ${d} 日 ${weekday}`;
     }
 
@@ -1561,12 +1653,14 @@ export class DashboardView extends ItemView {
         let data: number[];
 
         if (this.selectedPrimaryCategory) {
-            const secondaries = stats.secondaryCategories[this.selectedPrimaryCategory] || {};
-            labels = Object.keys(secondaries);
-            data = Object.values(secondaries);
+            // Pies show positive spending only: transfers add nothing and a slice cannot be negative.
+            const secondaries = Object.entries(stats.secondaryCategories[this.selectedPrimaryCategory] || {}).filter(([, v]) => v > 0);
+            labels = secondaries.map(([k]) => k);
+            data = secondaries.map(([, v]) => v);
         } else {
-            labels = Object.keys(stats.categories);
-            data = Object.values(stats.categories);
+            const primaries = Object.entries(stats.categories).filter(([, v]) => v > 0);
+            labels = primaries.map(([k]) => k);
+            data = primaries.map(([, v]) => v);
         }
 
         const textColor = this.getObsidianColor('--ap-label-2');
@@ -1633,8 +1727,9 @@ export class DashboardView extends ItemView {
     }
 
     private renderPaymentMethodChart(canvas: HTMLCanvasElement, stats: MonthlyStats) {
-        const labels = Object.keys(stats.paymentMethods);
-        const data = Object.values(stats.paymentMethods);
+        const methods = Object.entries(stats.paymentMethods).filter(([, v]) => v > 0);
+        const labels = methods.map(([k]) => k);
+        const data = methods.map(([, v]) => v);
 
         const textColor = this.getObsidianColor('--ap-label-2');
 
@@ -1686,7 +1781,7 @@ export class DashboardView extends ItemView {
             // Try to map ID to name
             const user = this.plugin.settings.users.find(u => u.id === uid);
             const name = user ? user.name : 'Unknown';
-            userTotals[name] = (userTotals[name] || 0) + t.baseAmount;
+            userTotals[name] = (userTotals[name] || 0) + spent(t);
         });
 
         const labels = Object.keys(userTotals);
@@ -1760,7 +1855,7 @@ export class DashboardView extends ItemView {
                 val = s.total;
             } else {
                 for (const record of s.transactions) {
-                    val += await this.plugin.fxService.convert(record.baseAmount, base, target, record.date);
+                    val += await this.plugin.fxService.convert(spent(record), base, target, record.date);
                 }
             }
             monthlyTotals[s.month] = (monthlyTotals[s.month] || 0) + val;
@@ -1780,7 +1875,7 @@ export class DashboardView extends ItemView {
             data: {
                 labels: labels,
                 datasets: [{
-                    label: `支出金额 (${this.displayCurrency})`,
+                    label: tr(`Spent (${this.displayCurrency})`, `支出金额 (${this.displayCurrency})`),
                     data: data,
                     // Only the month being viewed is highlighted.
                     backgroundColor: labels.map(label => label === current ? accentColor : this.withAlpha(restColor, 0.55)),
@@ -1839,7 +1934,7 @@ export class DashboardView extends ItemView {
 
         const filtered: MonthlyStats = {
             month: stats.month,
-            total: tx.reduce((s, t) => s + t.baseAmount, 0),
+            total: tx.reduce((s, t) => s + spent(t), 0),
             categories: {},
             secondaryCategories: {},
             dailyStats: {},
@@ -1852,15 +1947,15 @@ export class DashboardView extends ItemView {
             const primary = (parts[0] || '其他支出').trim() || '其他支出';
             const secondary = (parts[1] || '一般').trim() || '一般';
 
-            filtered.categories[primary] = (filtered.categories[primary] || 0) + t.baseAmount;
+            filtered.categories[primary] = (filtered.categories[primary] || 0) + spent(t);
 
             if (!filtered.secondaryCategories[primary]) filtered.secondaryCategories[primary] = {};
-            filtered.secondaryCategories[primary][secondary] = (filtered.secondaryCategories[primary][secondary] || 0) + t.baseAmount;
+            filtered.secondaryCategories[primary][secondary] = (filtered.secondaryCategories[primary][secondary] || 0) + spent(t);
 
-            filtered.dailyStats[t.date] = (filtered.dailyStats[t.date] || 0) + t.baseAmount;
+            filtered.dailyStats[t.date] = (filtered.dailyStats[t.date] || 0) + spent(t);
 
             const pm = t.paymentMethod || '未分类';
-            filtered.paymentMethods[pm] = (filtered.paymentMethods[pm] || 0) + t.baseAmount;
+            filtered.paymentMethods[pm] = (filtered.paymentMethods[pm] || 0) + spent(t);
         }
 
         return filtered;

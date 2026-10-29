@@ -1,4 +1,6 @@
 /** Monthly budgets and recurring expenses. Pure functions, so they can be tested without Obsidian. */
+import { spent } from './ledger';
+
 
 export interface RecurringExpense {
     id: string;
@@ -51,16 +53,17 @@ export function parseBudgets(text: string): Budgets {
 
 /** Spending in the given month (YYYY-MM, base currency) against each budget, the fullest first. */
 export function budgetUsage(transactions: { date: string; category: string; baseAmount: number }[], month: string, budgets: Budgets): { rows: BudgetRow[]; total: BudgetRow | null } {
-    const spent: Record<string, number> = {};
+    const byCategory: Record<string, number> = {};
     let all = 0;
     for (const tx of transactions) {
-        if (!tx.date.startsWith(month) || !Number.isFinite(tx.baseAmount)) continue;
+        const value = spent(tx);
+        if (!tx.date.startsWith(month) || !Number.isFinite(value)) continue;
         const primary = primaryCategory(tx.category);
-        spent[primary] = (spent[primary] || 0) + tx.baseAmount;
-        all += tx.baseAmount;
+        byCategory[primary] = (byCategory[primary] || 0) + value;
+        all += value;
     }
     const rows = Object.entries(budgets.categories)
-        .map(([category, limit]) => ({ category, limit, spent: spent[category] || 0, ratio: (spent[category] || 0) / limit }))
+        .map(([category, limit]) => ({ category, limit, spent: byCategory[category] || 0, ratio: (byCategory[category] || 0) / limit }))
         .sort((a, b) => b.ratio - a.ratio);
     const total = budgets.total ? { category: '总计', limit: budgets.total, spent: all, ratio: all / budgets.total } : null;
     return { rows, total };

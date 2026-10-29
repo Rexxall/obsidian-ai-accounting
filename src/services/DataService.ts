@@ -1,5 +1,6 @@
-import { tableCells, recordId, renderTransaction, locateTransaction, validateTransaction, newRecordId, encodeCell } from "./ledger";
+import { tableCells, recordId, renderTransaction, locateTransaction, validateTransaction, newRecordId, encodeCell, spent } from "./ledger";
 import { App, TFile, TFolder, Notice } from 'obsidian';
+import { tr } from '../i18n';
 import { AccountingSettings } from '../settings';
 
 export interface TransactionRecord {
@@ -152,26 +153,26 @@ export class DataService {
                     userId: userId
                 };
 
-                if (/^\d{4}-\d{2}-\d{2}$/.test(record.date) && Number.isFinite(record.amount) && Number.isFinite(record.baseAmount)) {
+                if (/^\d{4}-\d{2}-\d{2}$/.test(record.date) && Number.isFinite(record.amount) && Number.isFinite(spent(record))) {
                     transactions.push(record);
-                    total += record.baseAmount;
+                    total += spent(record);
 
                     // Group by Date
-                    dailyStats[record.date] = (dailyStats[record.date] || 0) + record.baseAmount;
+                    dailyStats[record.date] = (dailyStats[record.date] || 0) + spent(record);
 
                     // Group by Primary and Secondary Category
                     const parts = record.category.split(/[/>:：]/);
                     const primary = (parts[0] || '其他支出').trim() || '其他支出';
                     const secondary = (parts[1] || '一般').trim() || '一般';
 
-                    categories[primary] = (categories[primary] || 0) + record.baseAmount;
+                    categories[primary] = (categories[primary] || 0) + spent(record);
 
                     if (!secondaryCategories[primary]) secondaryCategories[primary] = {};
-                    secondaryCategories[primary][secondary] = (secondaryCategories[primary][secondary] || 0) + record.baseAmount;
+                    secondaryCategories[primary][secondary] = (secondaryCategories[primary][secondary] || 0) + spent(record);
 
                     // Group by Payment Method
                     const method = record.paymentMethod || '未分类';
-                    paymentMethods[method] = (paymentMethods[method] || 0) + record.baseAmount;
+                    paymentMethods[method] = (paymentMethods[method] || 0) + spent(record);
                 }
             }
         }
@@ -198,7 +199,7 @@ export class DataService {
         const originalContent = content;
         this.fileCache.delete(file.path);
         const stats = await this.parseMonthlyFile(file);
-        if (await this.app.vault.read(file) !== originalContent) throw new Error("账本已变化，请刷新后更新报表。");
+        if (await this.app.vault.read(file) !== originalContent) throw new Error(tr('The ledger changed. Refresh before updating the report.', '账本已变化，请刷新后更新报表。'));
 
         // Define Delimiters
         const startMarker = '%% BEGIN_AI_ANALYSIS %%';
@@ -239,7 +240,7 @@ export class DataService {
         }
 
         await this.app.vault.process(file, current => {
-            if (current !== originalContent) throw new Error('账本已变化，请刷新后更新报表。');
+            if (current !== originalContent) throw new Error(tr('The ledger changed. Refresh before updating the report.', '账本已变化，请刷新后更新报表。'));
             return content;
         });
         this.fileCache.delete(file.path);
@@ -336,7 +337,7 @@ export class DataService {
                 const rows: string[] = [];
                 for (const data of prepared) {
                     if (knownIds.has(data.id)) continue;
-                    if (data.date.slice(0, 7) !== yearMonth) throw new Error('交易日期与月份不一致。');
+                    if (data.date.slice(0, 7) !== yearMonth) throw new Error(tr('The date does not match the ledger month.', '交易日期与月份不一致。'));
                     rows.push(renderTransaction(data));
                     knownIds.add(data.id);
                 }
@@ -522,7 +523,7 @@ export class DataService {
         // Total - Sum(others)
         const totalSplitOut = newTransactions.reduce((acc, curr) => acc + curr.amount, 0);
         if (newTransactions.some(tx => !Number.isFinite(tx.amount) || tx.amount < 0) || totalSplitOut > originalTx.amount) {
-            throw new Error('分账金额无效或超过原交易金额。');
+            throw new Error(tr('The split amount is not valid or exceeds the transaction.', '分账金额无效或超过原交易金额。'));
         }
         const newOriginalAmount = originalTx.amount - totalSplitOut;
 
@@ -557,7 +558,7 @@ export class DataService {
         // So we just need to save the table change!
 
         await this.app.vault.process(file, current => {
-            if (current !== originalContent) throw new Error('原账目已变化，请刷新后分账。');
+            if (current !== originalContent) throw new Error(tr('The entry changed. Refresh before splitting.', '原账目已变化，请刷新后分账。'));
             return content;
         });
         this.fileCache.delete(file.path);
@@ -589,10 +590,10 @@ export class DataService {
     public async updateTransaction(oldTx: TransactionRecord, newTx: TransactionRecord) {
         validateTransaction(newTx);
         if (oldTx.date.slice(0, 7) !== newTx.date.slice(0, 7)) {
-            throw new Error('跨月移动需要迁移两份账本。请先在目标月份录入，再核对删除原记录。');
+            throw new Error(tr('Moving to another month touches two ledgers. Enter it in the new month first, then delete the old row.', '跨月移动需要迁移两份账本。请先在目标月份录入，再核对删除原记录。'));
         }
         const file = this.getLocationFile(oldTx);
-        if (!file) throw new Error('未找到原账本。');
+        if (!file) throw new Error(tr('Ledger file not found.', '未找到原账本。'));
         await this.app.vault.process(file, current => {
             const lines = current.split('\n');
             const index = locateTransaction(lines, oldTx);
@@ -605,7 +606,7 @@ export class DataService {
 
     public async deleteTransaction(targetTx: TransactionRecord) {
         const file = this.getLocationFile(targetTx);
-        if (!file) throw new Error('未找到原账本。');
+        if (!file) throw new Error(tr('Ledger file not found.', '未找到原账本。'));
         await this.app.vault.process(file, current => {
             const lines = current.split('\n');
             lines.splice(locateTransaction(lines, targetTx), 1);
@@ -726,7 +727,7 @@ export class DataService {
 
             if (modified) {
                 await this.app.vault.process(file, current => {
-                    if (current !== content) throw new Error('账本已变化，请刷新后重新分类。');
+                    if (current !== content) throw new Error(tr('The ledger changed. Refresh before renaming the category.', '账本已变化，请刷新后重新分类。'));
                     return newLines.join('\n');
                 });
                 // Invalidate cache
@@ -737,9 +738,9 @@ export class DataService {
         }
 
         if (updateCount > 0) {
-            new Notice(`Successfully updated ${updateCount} transactions from "${oldCategory}" to "${newCategory}"`);
+            new Notice(tr(`Renamed "${oldCategory}" to "${newCategory}" in ${updateCount} transactions.`, `已把 ${updateCount} 笔交易的“${oldCategory}”改为“${newCategory}”。`));
         } else {
-            new Notice(`No transactions found for category "${oldCategory}"`);
+            new Notice(tr(`No transactions in "${oldCategory}".`, `“${oldCategory}”下没有交易。`));
         }
     }
 }

@@ -9,7 +9,16 @@ import { ReviewImportModal } from "./modals/ReviewImportModal";
 import { migrateSettings } from './services/migrate';
 import { recurringDrafts } from "./services/planning";
 import { TransactionRecord } from "./services/DataService";
-import { TransactionData } from "./services/AIService";
+import { TransactionData, failureMessage } from "./services/AIService";
+import { ReviewSource } from "./modals/ReviewImportModal";
+import { PendingDraft } from "./settings";
+import { TaskProgress } from "./ai/progress";
+import { AiError } from "./ai/providers";
+import { tr } from "./i18n";
+
+async function sha256(text: string): Promise<string> {
+	return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))), byte => byte.toString(16).padStart(2, '0')).join('');
+}
 
 const OLD_PLUGIN_ID = 'ai-accounting-plugin';
 
@@ -57,35 +66,35 @@ export default class AccountingPlugin extends Plugin {
 
 		this.addCommand({
 			id: 'scan-magic-inbox',
-			name: 'Scan inbox now',
+			name: tr('Scan inbox now', '立即扫描收件箱'),
 			callback: () => void this.scanInbox()
 		});
 
 		this.addCommand({
 			id: 'open-accounting-dashboard',
-			name: 'Open dashboard',
+			name: tr('Open dashboard', '打开账本'),
 			callback: () => void this.activateView()
 		});
 
 		this.addCommand({
 			id: 'process-current-note',
-			name: 'Read the current note into the ledger',
+			name: tr('Read the current note into the ledger', '识别当前笔记并记账'),
 			callback: () => void this.processCurrentNote()
 		});
 
 		this.addCommand({
 			id: 'open-dashboard-new-pane',
-			name: 'Open dashboard in a new pane',
+			name: tr('Open dashboard in a new pane', '在新窗格打开账本'),
 			callback: () => void this.openNewDashboard()
 		});
 
 		this.addCommand({
 			id: 'regenerate-all-visuals',
-			name: 'Regenerate charts in all monthly reports',
+			name: tr('Regenerate charts in all monthly reports', '重新生成所有月报的图表'),
 			callback: async () => {
 				const folder = this.app.vault.getAbstractFileByPath(this.settings.financeFolderPath);
 				if (!(folder instanceof TFolder)) {
-					new Notice('找不到账本文件夹。');
+					new Notice(tr('Ledger folder not found.', '找不到账本文件夹。'));
 					return;
 				}
 
@@ -95,25 +104,25 @@ export default class AccountingPlugin extends Plugin {
 					/^\d{4}-\d{2}$/.test(f.basename)
 				) as TFile[];
 
-				new Notice(`正在更新 ${files.length} 份月报的图表…`);
+				new Notice(tr(`Updating charts in ${files.length} monthly reports…`, `正在更新 ${files.length} 份月报的图表…`));
 
 				for (const file of files) {
 					await this.dataService.updateMonthlyFileVisuals(file);
 				}
 
-				new Notice('月报图表已全部更新。');
+				new Notice(tr('Charts updated in every monthly report.', '月报图表已全部更新。'));
 			}
 		});
 
 		this.addCommand({
 			id: 'add-recurring-expenses',
-			name: "Add this month's recurring expenses",
+			name: tr("Add this month's recurring expenses", '添加本月固定支出'),
 			callback: () => void this.addRecurringForMonth()
 		});
 
 		this.addCommand({
 			id: 'sync-historical-to-daily-journal',
-			name: 'Copy past transactions to daily notes',
+			name: tr('Copy past transactions to daily notes', '把历史账目同步到日记'),
 			callback: async () => {
 				await this.syncHistoricalToDailyJournal();
 			}
@@ -123,7 +132,7 @@ export default class AccountingPlugin extends Plugin {
 			this.app.workspace.on('editor-menu', (menu, editor, view) => {
 				menu.addItem((item) => {
 					item
-						.setTitle('记账：识别这篇笔记')
+						.setTitle(tr('Accounting: read this note', '记账：识别这篇笔记'))
 						.setIcon('coins')
 						.onClick(async () => {
 							await this.processCurrentNote();
@@ -134,7 +143,7 @@ export default class AccountingPlugin extends Plugin {
 
 		this.addSettingTab(new AccountingSettingTab(this.app, this));
 
-		this.addRibbonIcon('pie-chart', '打开记账面板', () => {
+		this.addRibbonIcon('pie-chart', tr('Open accounting dashboard', '打开记账面板'), () => {
 			void this.activateView();
 		});
 
@@ -180,12 +189,12 @@ export default class AccountingPlugin extends Plugin {
 		const known = new Set(stats.flatMap(s => s.transactions.map(t => t.id)).filter((id): id is string => !!id));
 		const drafts = recurringDrafts(this.settings.recurring, month, known);
 		if (drafts.length === 0) {
-			new Notice(this.settings.recurring.some(r => r.enabled) ? `${month} 的固定支出都已入账。` : '还没有固定支出。可在设置 → 固定支出里添加。');
+			new Notice(this.settings.recurring.some(r => r.enabled) ? tr(`Recurring expenses for ${month} are all entered.`, `${month} 的固定支出都已入账。`) : tr('No recurring expenses yet. Add them in settings → Recurring expenses.', '还没有固定支出。可在设置 → 固定支出里添加。'));
 			return;
 		}
 		const userId = this.settings.currentUser || this.settings.users[0]?.id || 'default';
 		const userName = this.settings.users.find(u => u.id === userId)?.name || '';
-		const reviewed = await new ReviewImportModal(this.app, drafts, userName, `${month} 固定支出`, {}, '固定支出草稿').review();
+		const reviewed = await new ReviewImportModal(this.app, drafts, userName, tr(`${month} recurring`, `${month} 固定支出`), {}, tr('Recurring draft', '固定支出草稿')).review();
 		if (!reviewed?.length) return;
 		try {
 			await this.saveTransactions(reviewed, userId, row => row.id || '');
@@ -194,16 +203,16 @@ export default class AccountingPlugin extends Plugin {
 			new Notice((error as Error).message, 7000);
 			return;
 		}
-		new Notice(`已入账 ${reviewed.length} 笔固定支出。`);
+		new Notice(tr(`Entered ${reviewed.length} recurring expense(s).`, `已入账 ${reviewed.length} 笔固定支出。`));
 		this.refreshDashboards();
 	}
 
 	private async syncHistoricalToDailyJournal() {
 		if (!this.settings.dailyJournalEnabled) {
-			new Notice('请先在设置里打开“同步到日记”。');
+			new Notice(tr('Turn on "Copy to daily notes" in settings first.', '请先在设置里打开“同步到日记”。'));
 			return;
 		}
-		const notice = new Notice('开始同步历史账目到日记...', 0);
+		const notice = new Notice(tr('Copying past entries to daily notes…', '开始同步历史账目到日记...'), 0);
 		const stats = await this.dataService.getAllData();
 		const dailyMap: Record<string, TransactionRecord[]> = {};
 		let total = 0;
@@ -224,7 +233,7 @@ export default class AccountingPlugin extends Plugin {
 			}
 		}
 		notice.hide();
-		new Notice(`同步完成，共处理 ${total} 条交易，涉及 ${dates.length} 天。`);
+		new Notice(tr(`Done: ${total} entries over ${dates.length} days.`, `同步完成，共处理 ${total} 条交易，涉及 ${dates.length} 天。`));
 	}
 
 	async activateView() {
@@ -275,9 +284,9 @@ export default class AccountingPlugin extends Plugin {
 					await this.processMagicFile(file);
 				}
 			}
-			new Notice('Scan complete.');
+			new Notice(tr('Scan complete.', '扫描完成。'));
 		} else {
-			new Notice(`Magic Inbox folder not found: ${this.settings.magicFolderPath}`);
+			new Notice(tr(`Inbox folder not found: ${this.settings.magicFolderPath}`, `找不到收件箱文件夹：${this.settings.magicFolderPath}`));
 		}
 	}
 
@@ -286,69 +295,120 @@ export default class AccountingPlugin extends Plugin {
 		if (file) {
 			await this.processMagicFile(file, false, true);
 		} else {
-			new Notice('No active note found.');
+			new Notice(tr('Open a note first.', '请先打开一篇笔记。'));
 		}
 	}
 
 	async processMagicFile(file: TFile, shouldArchive: boolean = true, appendToArchiveMonthly: boolean = false) {
 		const processingPath = file.path;
 		if (this.processingFiles.has(processingPath)) return;
+		const ext = file.extension.toLowerCase();
+		const isImage = ['jpg', 'jpeg', 'png', 'webp'].includes(ext);
+		if (!isImage && !['md', 'txt'].includes(ext)) return;
 		this.processingFiles.add(processingPath);
-		const processingNotice = new Notice(`Processing: ${file.name}`, 0); // Persistent during processing
-
 		try {
-			let content: string;
-			let isImage = false;
-
-			if (['jpg', 'jpeg', 'png', 'webp'].includes(file.extension.toLowerCase())) {
-				const buffer = await this.app.vault.readBinary(file);
-				content = arrayBufferToBase64(buffer);
-				isImage = true;
-			} else if (['md', 'txt'].includes(file.extension.toLowerCase())) {
-				content = await this.app.vault.read(file);
-			} else {
-				processingNotice.hide();
-				return; // Unsupported file type
-			}
-
-			// Identify Target User Early for Notification
-			const userId = this.determineUserForFile(file, isImage ? '' : content);
-			const targetUser = this.settings.users.find(u => u.id === userId);
-			const userName = targetUser ? targetUser.name : '未知用户';
-			processingNotice.setMessage(`正在处理 [${userName}] 的账单: ${file.name}`);
-
-			const extracted = await this.aiService.processInput(content, isImage);
-            if (!extracted.length) { processingNotice.hide(); return; }
-            processingNotice.hide();
-            const dataArray = await new ReviewImportModal(this.app, extracted, userName, file.name,
-                isImage ? { imageSrc: this.app.vault.getResourcePath(file) } : { text: content.slice(0, 1200) }).review();
-            if (!dataArray) return;
-            const sourceHash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(content))), byte => byte.toString(16).padStart(2, '0')).join('');
-			if (dataArray && dataArray.length > 0) {
-				const months = await this.saveTransactions(dataArray, userId, (data, index) => `${sourceHash}-${index}`);
-
-				processingNotice.hide(); // Success: hide processing notice
-				new Notice(`成功处理 [${userName}] 的 ${dataArray.length} 笔交易。`);
+			const content = isImage ? arrayBufferToBase64(await this.app.vault.readBinary(file)) : await this.app.vault.read(file);
+			const hash = await sha256(content);
+			// The same receipt reuses its draft instead of being sent to the AI again.
+			let draft = this.settings.drafts.find(d => d.hash === hash);
+			if (!draft) {
+				const userId = this.determineUserForFile(file, isImage ? '' : content);
+				const rows = await this.recognize(file.name, content, isImage, ext === 'jpg' ? 'image/jpeg' : `image/${ext}`,
+					() => void this.processMagicFile(file, shouldArchive, appendToArchiveMonthly));
+				if (!rows) return;
+				if (rows.length === 0) {
+					new Notice(tr(`No transactions found in ${file.name}. The file was left as it is.`, `${file.name} 里没有找到交易，文件保持原样。`));
+					return;
+				}
+				draft = {
+					id: hash.slice(0, 16), source: file.name, sourcePath: file.path, hash, userId, kind: isImage ? 'image' : 'text',
+					archive: shouldArchive, appendArchive: appendToArchiveMonthly && !isImage, createdAt: new Date().toISOString(), rows
+				};
+				this.settings.drafts.push(draft);
+				await this.saveSettings();
 				this.refreshDashboards();
-
-				if (shouldArchive) {
-					await this.archiveFile(file);
-				}
-				if (appendToArchiveMonthly && !isImage) {
-					await this.appendContentToArchiveMonthly(months.length > 0 ? months : [this.getCurrentYearMonth()], file, content);
-				}
-			} else {
-				processingNotice.hide();
-				new Notice(`No transactions found in: ${file.name}`);
 			}
+			await this.reviewDraft(draft);
 		} catch (error) {
-			processingNotice.hide();
-			console.error('Accounting Processor Error:', error);
-			new Notice(`处理未完成：${(error as Error).message}。原始文件已保留。`, 8000);
+			console.error('AI Accounting: could not process the file.', error);
+			new Notice(tr(`Not finished: ${(error as Error).message}. The original file is kept.`, `处理未完成：${(error as Error).message}。原始文件已保留。`), 8000);
 		} finally {
-            this.processingFiles.delete(processingPath);
-            processingNotice.hide();
-        }
+			this.processingFiles.delete(processingPath);
+		}
+	}
+
+	/** Sends the input to the AI with a progress notice. Null when cancelled or failed (the notice offers Retry). */
+	private async recognize(name: string, content: string, isImage: boolean, mimeType: string, retry: () => void): Promise<TransactionData[] | null> {
+		const progress = new TaskProgress(tr(`Reading ${name}`, `识别 ${name}`), 'aa');
+		progress.step(tr('Preparing…', '准备中…'), 1, 3);
+		try {
+			const rows = await this.aiService.processInput(content, isImage, mimeType, {
+				token: progress.token,
+				onAttempt: (service, index, total) => progress.step(total > 1
+					? tr(`Waiting for ${service} (service ${index} of ${total})…`, `等待 ${service} 回复（第 ${index}/${total} 个服务）…`)
+					: tr(`Waiting for ${service}…`, `等待 ${service} 回复…`), 2, 3)
+			});
+			progress.step(tr('Making the draft…', '整理草稿…'), 3, 3);
+			progress.close();
+			return rows;
+		} catch (error) {
+			if (progress.cancelled || (error instanceof AiError && error.kind === 'cancelled')) return null;
+			// Without a service there is nothing to retry; the next step is the settings.
+			const setup = error instanceof AiError && (error.detail === 'no-service' || error.detail === 'no-vision' || error.kind === 'no-key');
+			if (setup) progress.fail(failureMessage(error), () => this.openSettings(), tr('Open settings', '打开设置'));
+			else progress.fail(failureMessage(error), retry);
+			return null;
+		}
+	}
+
+	/** Same date, currency and amount as a row already in the ledger: index → that row's description. */
+	async findDuplicates(rows: TransactionData[]): Promise<Map<number, string>> {
+		const found = new Map<number, string>();
+		const existing = (await this.dataService.getAllData()).flatMap(s => s.transactions);
+		rows.forEach((row, index) => {
+			const match = existing.find(tx => tx.date === row.date && tx.currency === row.currency && Math.abs(tx.amount - Number(row.amount)) < 0.005 && (!row.id || tx.id !== row.id));
+			if (match) found.set(index, match.description || match.category);
+		});
+		return found;
+	}
+
+	/** Opens a saved draft for review; it stays saved until it is entered or discarded. */
+	async reviewDraft(draft: PendingDraft) {
+		const userName = this.settings.users.find(u => u.id === draft.userId)?.name || '';
+		const file = draft.sourcePath ? this.app.vault.getFileByPath(draft.sourcePath) : null;
+		let preview: ReviewSource = {};
+		if (file && draft.kind === 'image') preview = { imageSrc: this.app.vault.getResourcePath(file) };
+		else if (file) preview = { text: (await this.app.vault.read(file)).slice(0, 1200) };
+		const result = await new ReviewImportModal(this.app, draft.rows, userName, draft.source, preview, tr('AI draft', 'AI 草稿'), {
+			duplicates: await this.findDuplicates(draft.rows),
+			onDiscard: async () => { await this.discardDraft(draft.id); new Notice(tr('Draft discarded. The original file is kept.', '已丢弃草稿，原始文件保留。')); },
+			onKeep: async rows => { draft.rows = rows; await this.saveSettings(); }
+		}).review();
+		if (!result) return;
+		let months: string[];
+		try {
+			months = await this.saveTransactions(result, draft.userId, (_row, index) => `${draft.hash.slice(0, 32)}-${index}`);
+		} catch (error) {
+			// Nothing is written when a rate is missing: every row is converted before the first write.
+			new Notice(`${(error as Error).message} ${tr('The draft is kept.', '草稿已保留。')}`, 8000);
+			return;
+		}
+		await this.discardDraft(draft.id);
+		new Notice(tr(`Entered ${result.length} transaction(s)${userName ? ` for ${userName}` : ''}.`, `已入账 ${result.length} 笔${userName ? `（${userName}）` : ''}。`));
+		if (file && draft.appendArchive) await this.appendContentToArchiveMonthly(months.length > 0 ? months : [this.getCurrentYearMonth()], file, await this.app.vault.read(file));
+		if (file && draft.archive) await this.archiveFile(file);
+	}
+
+	openSettings() {
+		const setting = (this.app as typeof this.app & { setting?: { open(): void; openTabById(id: string): void } }).setting;
+		setting?.open();
+		setting?.openTabById(this.manifest.id);
+	}
+
+	async discardDraft(id: string) {
+		this.settings.drafts = this.settings.drafts.filter(d => d.id !== id);
+		await this.saveSettings();
+		this.refreshDashboards();
 	}
 
 	/** Open dashboards cache the ledger; reload them after writing new rows or switching the style. */
@@ -502,11 +562,12 @@ export default class AccountingPlugin extends Plugin {
 		let data = await this.loadData() as Partial<AccountingSettings> | null;
 		const imported = !data ? await this.importFromOldId() : null;
 		if (imported) data = imported;
+		const legacyShape = !!data && 'aiProvider' in data;
 		this.settings = migrateSettings(data, DEFAULT_SETTINGS);
 		const movedKeys = this.moveKeysToSecretStorage();
-		if (imported || movedKeys) await this.saveData(this.settings);
+		if (imported || movedKeys || legacyShape) await this.saveData(this.settings);
 		if (imported) {
-			this.app.workspace.onLayoutReady(() => new Notice('记账：已导入旧版插件的设置。确认无误后，可以在第三方插件里停用并删除旧版。', 0));
+			this.app.workspace.onLayoutReady(() => new Notice(tr('AI Accounting: settings were imported from the old plugin. Once they look right, turn off and remove the old one under Community plugins.', '记账：已导入旧版插件的设置。确认无误后，可以在第三方插件里停用并删除旧版。'), 0));
 		}
 	}
 
@@ -527,7 +588,7 @@ export default class AccountingPlugin extends Plugin {
 		}
 	}
 
-	/** Plain-text keys from before 0.5.0 move into Obsidian's secret storage; settings keep only the names. */
+	/** Plain-text keys from before 0.5.0 (Gemini's included, now an entry in the list) move into Obsidian's secret storage; settings keep only the names. */
 	private moveKeysToSecretStorage(): boolean {
 		const storage = this.app.secretStorage;
 		const s = this.settings;
@@ -539,14 +600,10 @@ export default class AccountingPlugin extends Plugin {
 			moved = true;
 			return name;
 		};
-		if (s.geminiApiKey && !s.geminiSecretName) {
-			s.geminiSecretName = store('gemini-api-key', 'ai-accounting-gemini-api-key', s.geminiApiKey);
-			s.geminiApiKey = '';
-		}
 		for (const ep of s.apiEndpoints) {
 			if (!ep.apiKey || ep.apiKeySecret) continue;
-			const id = `ai-accounting-endpoint-${ep.id.toLowerCase().replace(/[^a-z0-9-]/g, '')}`;
-			ep.apiKeySecret = store(id, `${id}-2`, ep.apiKey);
+			const id = ep.provider === 'gemini' ? 'gemini-api-key' : `ai-accounting-endpoint-${ep.id.toLowerCase().replace(/[^a-z0-9-]/g, '')}`;
+			ep.apiKeySecret = store(id, `ai-accounting-endpoint-${ep.id.toLowerCase().replace(/[^a-z0-9-]/g, '')}-2`, ep.apiKey);
 			ep.apiKey = '';
 		}
 		return moved;

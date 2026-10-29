@@ -1,8 +1,8 @@
 {
   "id": "ai-accounting",
   "name": "AI Accounting",
-  "version": "0.5.0",
-  "description": "Multi-currency expense ledger in Markdown. Type or photograph a receipt, review what the AI read, then save it to your ledger.",
+  "version": "0.6.0",
+  "description": "Turn receipt photos and notes into a multi-currency Markdown ledger. AI drafts each entry, you check it, then it is saved. Budgets, refunds, transfers, charts and CSV.",
   "author": "Rexxall",
   "isDesktopOnly": false,
   "minAppVersion": "1.13.0",

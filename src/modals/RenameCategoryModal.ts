@@ -1,4 +1,5 @@
 import { Modal, App, Setting, Notice } from 'obsidian';
+import { tr } from '../i18n';
 import AccountingPlugin from '../main';
 
 export class RenameCategoryModal extends Modal {
@@ -15,11 +16,11 @@ export class RenameCategoryModal extends Modal {
 
         this.modalEl.addClass('aa-modal');
         this.modalEl.addClass('ap', 'ap-modal');
-        this.setTitle(`重命名分类：${this.oldCategoryName}`);
+        this.setTitle(tr(`Rename category: ${this.oldCategoryName}`, `重命名分类：${this.oldCategoryName}`));
 
         new Setting(contentEl)
-            .setName('新分类名称')
-            .setDesc('所有相关的交易分类都将被更新')
+            .setName(tr('New name', '新分类名称'))
+            .setDesc(tr('Every transaction in this category is updated.', '所有相关的交易分类都将被更新'))
             .addText(text => text
                 .setValue(this.newCategoryName)
                 .onChange(value => {
@@ -28,22 +29,22 @@ export class RenameCategoryModal extends Modal {
 
         new Setting(contentEl)
             .addButton(btn => btn
-                .setButtonText('确认修改')
+                .setButtonText(tr('Rename', '确认修改'))
                 .setCta()
                 .onClick(async () => {
                     if (!this.newCategoryName || this.newCategoryName === this.oldCategoryName) {
-                        new Notice('无变化');
+                        new Notice(tr('Nothing changed.', '无变化'));
                         this.close();
                         return;
                     }
 
-                    new Notice(`正在批量修改分类: ${this.oldCategoryName} -> ${this.newCategoryName}...`);
+                    new Notice(tr(`Renaming ${this.oldCategoryName} to ${this.newCategoryName}…`, `正在批量修改分类: ${this.oldCategoryName} -> ${this.newCategoryName}...`));
                     await this.plugin.dataService.updateCategoryBatch(this.oldCategoryName, this.newCategoryName);
                     this.onRename();
                     this.close();
                 }))
             .addButton(btn => btn
-                .setButtonText('取消')
+                .setButtonText(tr('Cancel', '取消'))
                 .onClick(() => {
                     this.close();
                 }));
