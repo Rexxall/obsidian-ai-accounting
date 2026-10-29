@@ -178,6 +178,12 @@
    Repeated classes outrank Obsidian's modal and list-group :active rules. */
 .ap.ap.ap .checkbox-container:where(:not(.is-disabled)):active::after { left: 0; margin-top: var(--toggle-border-width); width: calc(var(--toggle-thumb-width) + 6px); height: var(--toggle-thumb-height); }
 .ap.ap.ap .checkbox-container.is-enabled:where(:not(.is-disabled)):active::after { transform: translate3d(calc(var(--toggle-width) - var(--toggle-thumb-width) - 6px - var(--toggle-border-width)), 0, 0); }
+/* Reduced motion: no stretch and no slide; the knob jumps between its two places. */
+@media (prefers-reduced-motion: reduce) {
+  .ap .checkbox-container::after { transition: none; }
+  .ap.ap.ap .checkbox-container:where(:not(.is-disabled)):active::after { width: var(--toggle-thumb-width); }
+  .ap.ap.ap .checkbox-container.is-enabled:where(:not(.is-disabled)):active::after { transform: translate3d(calc(var(--toggle-width) - var(--toggle-thumb-width) - var(--toggle-border-width)), 0, 0); }
+}
 
 /* ---------- Segmented control: capsule track, glass thumb ---------- */
 .ap-seg {

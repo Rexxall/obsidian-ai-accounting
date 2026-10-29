@@ -15,7 +15,7 @@
 - README in English and Chinese, with what is sent where and what it costs.
 - Requires Obsidian 1.13.0.
 - Settings rows, group titles, list chevrons and separators share one left and one right edge, on each service page too. Day headings line up with the checkboxes; the sample banner and *Where it went* rows line up with the cards; *By period* opens with a chevron on the right.
-- Toggles are sized through Obsidian's own toggle variables, so the knob sits 2px from every edge when off, on and pressed.
+- Toggles are sized through Obsidian's own toggle variables, so the knob sits 2px from every edge when off and on. Pressed, it stretches inside the track (off to the right, on to the left) instead of growing past it; with reduced motion it neither stretches nor slides.
 
 ## 0.5.0
 
