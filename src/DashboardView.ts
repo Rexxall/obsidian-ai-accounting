@@ -675,12 +675,9 @@ export class DashboardView extends ItemView {
         const csv = [header.join(','), ...rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))].join('\n');
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
-        const a = createEl('a');
-        a.href = url;
-        a.download = `transactions-${stats.month}.csv`;
-        document.body.appendChild(a);
+        const a = this.containerEl.ownerDocument.body.createEl('a', { href: url, attr: { download: `transactions-${stats.month}.csv` } });
         a.click();
-        document.body.removeChild(a);
+        a.remove();
         URL.revokeObjectURL(url);
     }
 
@@ -1524,7 +1521,7 @@ export class DashboardView extends ItemView {
      * color-mix() expressions, which canvas does not take, so the browser resolves them to rgb.
      */
     private getObsidianColor(variable: string): string {
-        const scope = this.contentEl.querySelector('.ai-accounting-dashboard-container') || document.body;
+        const scope = this.contentEl.querySelector('.ai-accounting-dashboard-container') || this.containerEl.ownerDocument.body;
         const value = getComputedStyle(scope).getPropertyValue(variable).trim();
         if (!value) return '';
         const probe = (scope as HTMLElement).createDiv();
@@ -1540,7 +1537,7 @@ export class DashboardView extends ItemView {
 
     /** Any CSS colour with a given opacity, resolved by the browser. */
     private withAlpha(color: string, alpha: number): string {
-        const probe = document.body.createDiv();
+        const probe = this.containerEl.ownerDocument.body.createDiv();
         probe.setCssProps({ color });
         const rgb = getComputedStyle(probe).color;
         probe.remove();
