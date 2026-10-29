@@ -1,4 +1,4 @@
-import { App, Notice, PluginSettingTab, Setting, SettingDefinitionItem } from "obsidian";
+import { App, Notice, PluginSettingTab, Setting, SettingDefinitionItem, SettingGroupItem } from "obsidian";
 import { RecurringExpense } from "./services/planning";
 import type { TransactionData } from "./services/AIService";
 import { DEFAULT_PROVIDER, ProviderId, TEST_COST_NOTE, presetFor, presets, listModels, testConnection, describeFailure, AiError } from "./ai/providers";
@@ -108,6 +108,27 @@ function writePath(root: object, path: string, value: unknown) {
 
 const text = (value: unknown) => (typeof value === 'string' ? value : typeof value === 'number' ? String(value) : '');
 
+const KIT_CLS = 'ap ap-settings';
+/** Sub-pages render outside the tab's container, so their groups carry the kit classes themselves. */
+function kitPage<K extends string>(items: SettingDefinitionItem<K>[]): SettingDefinitionItem<K>[] {
+	const out: SettingDefinitionItem<K>[] = [];
+	let loose: SettingGroupItem<K>[] = [];
+	const flush = () => {
+		if (loose.length) out.push({ type: 'group', cls: KIT_CLS, items: loose });
+		loose = [];
+	};
+	for (const item of items) {
+		if ('type' in item && (item.type === 'group' || item.type === 'list')) {
+			flush();
+			out.push({ ...item, cls: [item.cls, KIT_CLS].filter(Boolean).join(' ') });
+		} else {
+			loose.push(item as SettingGroupItem<K>);
+		}
+	}
+	flush();
+	return out;
+}
+
 export class AccountingSettingTab extends PluginSettingTab {
 	plugin: AccountingPlugin;
 	/** Model lists fetched in this session, by entry id. */
@@ -145,7 +166,7 @@ export class AccountingSettingTab extends PluginSettingTab {
 					type: 'page' as const,
 					name: `${i + 1}. ${ep.name || presetFor(ep.provider).name}`,
 					desc: !ep.enabled ? tr('Off', '已停用') : [ep.model, ep.vision ? tr('reads images', '能识图') : tr('text only', '只读文字')].filter(Boolean).join(' · '),
-					items: [
+					items: kitPage([
 						{ name: tr('On', '启用'), desc: tr('Services are tried top to bottom; a failed one hands over to the next.', '从上到下依次尝试，前一个失败就换下一个。'), control: { type: 'toggle', key: `apiEndpoints.${i}.enabled` } },
 						{ name: tr('Service', '服务商'), desc: tr('Choosing a service fills in its address and a suggested model.', '选好服务商会自动填上地址和推荐模型。'), control: { type: 'dropdown', key: `apiEndpoints.${i}.provider`, options: providerOptions } },
 						{ name: tr('Address', '接口地址'), desc: tr('Change it only for a proxy, another region or a local server.', '只有用代理、其他地区或本地服务时才需要改。'), control: { type: 'text', key: `apiEndpoints.${i}.endpoint`, placeholder: presetFor(ep.provider).baseUrl } },
@@ -154,7 +175,7 @@ export class AccountingSettingTab extends PluginSettingTab {
 						{ name: tr('Reads images', '能识图'), desc: tr('Turn on only if the model accepts pictures. Image receipts skip services that cannot read them.', '模型支持图片时才打开。图片票据会跳过不能识图的服务。'), control: { type: 'toggle', key: `apiEndpoints.${i}.vision` } },
 						{ name: tr('API key', 'API 密钥'), desc: this.keyDesc(ep), control: { type: 'secret', key: `apiEndpoints.${i}.apiKeySecret` } },
 						{ name: tr('Test connection', '测试连接'), desc: TEST_COST_NOTE(), render: (setting: Setting) => this.renderTest(setting, ep) }
-					]
+					])
 				}))
 			},
 			{
@@ -177,7 +198,7 @@ export class AccountingSettingTab extends PluginSettingTab {
 					type: 'page' as const,
 					name: item.description || tr(`Recurring expense ${i + 1}`, `固定支出 ${i + 1}`),
 					desc: !item.enabled ? tr('Off', '已停用') : item.amount > 0 ? tr(`Day ${item.day} of each month · ${item.amount} ${item.currency}`, `每月 ${item.day} 日 · ${item.amount} ${item.currency}`) : tr('Takes effect once it has an amount', '填写金额后生效'),
-					items: [
+					items: kitPage([
 						{ name: tr('On', '启用'), control: { type: 'toggle', key: `recurring.${i}.enabled` } },
 						{ name: tr('Description', '内容'), control: { type: 'text', key: `recurring.${i}.description`, placeholder: tr('Rent', '房租') } },
 						{ name: tr('Category', '分类'), control: { type: 'text', key: `recurring.${i}.category`, placeholder: '居家生活 / 房租' } },
@@ -185,7 +206,7 @@ export class AccountingSettingTab extends PluginSettingTab {
 						{ name: tr('Currency', '币种'), control: { type: 'text', key: `recurring.${i}.currency` } },
 						{ name: tr('Day of month', '每月扣款日'), desc: tr('Short months use their last day.', '短月份按当月最后一天。'), control: { type: 'number', key: `recurring.${i}.day`, min: 1, max: 31, step: 1 } },
 						{ name: tr('Payment method', '支付方式'), control: { type: 'text', key: `recurring.${i}.paymentMethod` } }
-					]
+					])
 				}))
 			},
 			{
@@ -206,12 +227,12 @@ export class AccountingSettingTab extends PluginSettingTab {
 					type: 'page' as const,
 					name: user.name || tr(`Member ${i + 1}`, `成员 ${i + 1}`),
 					desc: [i === 0 ? tr('Default member', '默认成员') : '', user.folder].filter(Boolean).join(' · '),
-					items: [
+					items: kitPage([
 						{ name: tr('Name', '名字'), control: { type: 'text', key: `users.${i}.name` } },
 						{ name: tr('Colour', '颜色'), control: { type: 'color', key: `users.${i}.color` } },
 						{ name: tr('Ledger folder', '账本文件夹'), control: { type: 'folder', key: `users.${i}.folder` } },
 						{ name: tr('Own inbox', '专用收件箱'), desc: tr('Optional. Files put here are also sent to the AI service right away, and recorded under this member.', '可不填。放进这里的文件同样会立即发给 AI 服务，并记到这位成员名下。'), control: { type: 'folder', key: `users.${i}.inboxFolder` } }
-					]
+					])
 				}))
 			},
 			{

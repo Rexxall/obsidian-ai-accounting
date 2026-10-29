@@ -111,8 +111,8 @@
 
 /* ---------- Grouped list (content layer: solid) ---------- */
 .ap-section { display: grid; gap: var(--ap-s2); margin-block: var(--ap-s5); }
-.ap-section-title { font: var(--ap-headline); color: var(--ap-label); padding-inline: var(--ap-s1); }
-.ap-section-note { font: var(--ap-callout); color: var(--ap-label-2); padding-inline: var(--ap-s1); margin: 0; }
+.ap-section-title { font: var(--ap-headline); color: var(--ap-label); padding-inline: var(--ap-s4); }
+.ap-section-note { font: var(--ap-callout); color: var(--ap-label-2); padding-inline: var(--ap-s4); margin: 0; }
 .ap-group { background: var(--ap-group); border-radius: var(--ap-r-group); box-shadow: var(--ap-hair); overflow: hidden; }
 .ap-row { display: flex; align-items: center; gap: var(--ap-s3); min-height: 44px; padding: var(--ap-s2) var(--ap-s4); position: relative; }
 .ap-row + .ap-row::before { content: ""; position: absolute; top: 0; right: 0; left: var(--ap-s4); border-top: 0.5px solid var(--ap-sep); }
@@ -137,7 +137,9 @@
 .ap-settings .setting-item:not(.setting-item-heading):has(+ .setting-item-heading),
 .ap-settings .setting-item:not(.setting-item-heading):last-child,
 .ap-settings .setting-item:not(.setting-item-heading):has(+ :not(.setting-item)) { border-bottom-left-radius: var(--ap-r-group); border-bottom-right-radius: var(--ap-r-group); }
-.ap-settings .setting-item-heading { background: none; padding: var(--ap-s6) var(--ap-s1) var(--ap-s2); min-height: 0; }
+.ap-settings .setting-item-heading { background: none; padding: var(--ap-s6) var(--ap-s4) var(--ap-s2); min-height: 0; }
+/* Obsidian pads plain rows 20px and list rows 16px; one inset puts every title, chevron, control and separator on the same two edges */
+.ap.ap-settings .setting-item { padding-inline: var(--ap-s4); }
 .ap-settings .setting-item-heading .setting-item-name { font: var(--ap-headline); }
 .ap-settings .setting-item-heading .setting-item-description { padding-top: 4px; }
 .ap-settings .setting-item-name { font: var(--ap-body); }
@@ -586,13 +588,17 @@
 .ai-accounting-dashboard-container > .dashboard-grid > .aa-totals { margin-bottom: 16px; }
 
 /* Where the money went */
-.ai-accounting-dashboard-container .aa-where-row { padding: 6px 2px; cursor: pointer; }
+.ai-accounting-dashboard-container .aa-where-row { padding: 6px 0; cursor: pointer; }
 .ai-accounting-dashboard-container .aa-where-row:hover { background: var(--background-modifier-hover); }
 .ai-accounting-dashboard-container .aa-where-row.is-active { font-weight: 600; }
 .ai-accounting-dashboard-container .aa-where-row .ap-amt { font-weight: 500; }
 
 /* Period analysis (collapsed by default) */
-.ai-accounting-dashboard-container .aa-analysis summary { margin: 0; cursor: pointer; }
+.ai-accounting-dashboard-container .aa-analysis summary { margin: 0; cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between; }
+/* The disclosure chevron sits on the right so the title lines up with the other cards */
+.ai-accounting-dashboard-container .aa-analysis summary::-webkit-details-marker { display: none; }
+.ai-accounting-dashboard-container .aa-analysis summary::after { content: "›"; color: var(--ap-label-3); font-size: 18px; line-height: 1; transition: transform 0.2s; }
+.ai-accounting-dashboard-container .aa-analysis[open] summary::after { transform: rotate(90deg); }
 .ai-accounting-dashboard-container .aa-analysis[open] summary { margin-bottom: 8px; }
 .ai-accounting-dashboard-container .aa-analysis-body { display: flex; flex-direction: column; gap: 12px; }
 .ai-accounting-dashboard-container .aa-link-btn { height: auto; padding: 2px 8px; font-size: var(--font-ui-smaller); }
@@ -625,7 +631,7 @@
 .ai-accounting-dashboard-container .aa-tx-row:hover td { background: var(--background-modifier-hover); }
 
 .ai-accounting-dashboard-container .aa-day-row td {
-	padding: 16px 2px 5px;
+	padding: 16px 8px 5px;
 	border-bottom: 1px solid var(--ap-sep);
 }
 
@@ -780,7 +786,7 @@
 
 /* Drafts waiting for review and the sample banner. */
 .ai-accounting-dashboard-container .aa-drafts,
-.ai-accounting-dashboard-container .aa-demo-banner { margin: 0 0 12px; padding: 10px 14px; border-radius: var(--ap-r-md, 10px); display: flex; flex-direction: column; gap: 6px; }
+.ai-accounting-dashboard-container .aa-demo-banner { margin: 0 0 12px; padding: 10px var(--ap-s4); border-radius: var(--ap-r-md, 10px); display: flex; flex-direction: column; gap: 6px; }
 .ai-accounting-dashboard-container .aa-demo-banner { flex-direction: row; align-items: center; gap: 12px; }
 .ai-accounting-dashboard-container .aa-drafts-title { font-weight: 600; }
 .ai-accounting-dashboard-container .aa-draft-row { display: flex; align-items: center; gap: 12px; }
