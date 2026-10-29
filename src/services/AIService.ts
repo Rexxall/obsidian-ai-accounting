@@ -169,7 +169,7 @@ Input: ${isImage ? '[An image was provided]' : content}`;
         // 若列表为空，降级到旧的单一 endpoint 配置
         if (candidates.length === 0) {
             if (!this.settings.openaiApiKey && !this.settings.openaiEndpoint) {
-                new Notice('请在设置中添加至少一个 API Endpoint。');
+                new Notice('请在设置中至少添加一个 API 接口。');
                 return [];
             }
             candidates.push({

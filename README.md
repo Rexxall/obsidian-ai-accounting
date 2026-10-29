@@ -64,7 +64,7 @@ Most expense apps keep your data in their own database, and the ones that read r
 3. **Settings → Community plugins**, reload, enable **AI Accounting**.
 4. Click the pie-chart icon in the left ribbon, or run **AI Accounting: Open dashboard**.
 
-Works on desktop and mobile, Obsidian 1.11.4 or later. The AI features need your own API key.
+Works on desktop and mobile, Obsidian 1.13 or later. The AI features need your own API key.
 
 ### Upgrading from 0.4.0 or earlier
 
@@ -129,7 +129,8 @@ npm run lint
 - New id `ai-accounting` and name **AI Accounting**, as the community directory requires. Settings from `ai-accounting-plugin` are imported on first start.
 - Monthly budgets by category, with a budget card on the ledger page.
 - Recurring expenses, added each month through the review dialog and never twice.
-- API keys move to Obsidian's secret storage and can be shared with other plugins. Requires Obsidian 1.11.4.
+- API keys move to Obsidian's secret storage and can be shared with other plugins. When an old file has both an endpoint list and the single OpenAI key from early versions, that key is kept as a disabled endpoint instead of staying in plain text.
+- Requires Obsidian 1.13: settings use Obsidian's own lists and pages for members, recurring expenses and AI endpoints, and show up in settings search.
 - Settings rebuilt with Obsidian's own section headings, toggles and buttons; no inline styles.
 - Fixed: adding an entry from a day's detail in the charts view failed because the exchange rate was saved under the wrong field.
 - Model replies are typed and checked; `npm run lint` passes with no errors.

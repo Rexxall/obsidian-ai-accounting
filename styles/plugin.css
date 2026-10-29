@@ -287,17 +287,7 @@
 .ai-accounting-dashboard-container .aa-budget-over { color: var(--ap-bad); }
 
 /* Settings: lists of members, recurring expenses and endpoints */
-.aa-settings .aa-settings-note { margin: 0 0 var(--size-4-2); }
-.aa-settings .aa-settings-list { display: grid; gap: var(--size-4-2); margin-bottom: var(--size-4-4); }
-.aa-settings .aa-settings-card { border-radius: var(--radius-m); }
-.aa-settings .aa-settings-card.is-off { opacity: 0.55; }
-.aa-settings .aa-settings-card .setting-item:first-child { border-top: none; }
-.aa-settings .aa-settings-fields .setting-item-info { display: none; }
-.aa-settings .aa-settings-fields .setting-item-control { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--size-4-2); width: 100%; }
-.aa-settings .aa-settings-fields input { width: 100%; min-width: 0; }
-.aa-settings .aa-member-row .setting-item-control input[type="text"] { width: 9em; }
 @media (max-width: 600px) {
-	.aa-settings .aa-settings-fields .setting-item-control { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 .aa-review-modal .aa-review-field.is-date { justify-items: start; }
 .aa-review-modal button.aa-date-pill.is-flagged { box-shadow: 0 0 0 1px var(--ap-warn); background: var(--ap-warn-soft); }

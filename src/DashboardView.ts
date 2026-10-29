@@ -485,7 +485,7 @@ export class DashboardView extends ItemView {
         const descInput = qForm.createEl('input', { type: 'text', attr: { placeholder: '描述' } });
         const isSplitInput = qForm.createDiv({ cls: 'quick-add-toggle' });
         const splitCheckbox = isSplitInput.createEl('input', { type: 'checkbox', attr: { id: 'aa-split' } });
-        isSplitInput.createEl('label', { text: 'AA/分账', attr: { for: 'aa-split' } });
+        isSplitInput.createEl('label', { text: '平摊分账', attr: { for: 'aa-split' } });
 
         const addBtn = qForm.createEl('button', { text: '添加', cls: 'mod-cta' });
         addBtn.onclick = async () => {
@@ -909,7 +909,7 @@ export class DashboardView extends ItemView {
                 // Batch Action Bar
                 const batchBar = detailsCard.createDiv({ cls: 'ap-notice aa-batch-bar' });
                 const batchCount = batchBar.createSpan({ cls: 'ap-grow', text: '已选择 0 项' });
-                const batchSplitBtn = batchBar.createEl('button', { text: '批量 AA', cls: 'mod-cta' });
+                const batchSplitBtn = batchBar.createEl('button', { text: '批量分账', cls: 'mod-cta' });
 
                 const selectedSet = new Set<string>();
 
@@ -1161,7 +1161,7 @@ export class DashboardView extends ItemView {
                     const actionsCell = row.createEl('td', { cls: 'action-cell hide-mobile', attr: { 'data-hide': 'mobile' } });
 
                     // AA Button
-                    const aaBtn = actionsCell.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': 'AA 分账' } });
+                    const aaBtn = actionsCell.createEl('button', { cls: 'clickable-icon', attr: { 'aria-label': '分账' } });
                     setIcon(aaBtn, 'users');
                     if (tx.description.includes('(AA)')) {
                         aaBtn.disabled = true;

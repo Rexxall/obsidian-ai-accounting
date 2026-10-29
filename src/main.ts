@@ -6,6 +6,7 @@ import { DataService } from "./services/DataService";
 import { DashboardView, VIEW_TYPE_DASHBOARD } from "./DashboardView";
 
 import { ReviewImportModal } from "./modals/ReviewImportModal";
+import { migrateSettings } from './services/migrate';
 import { recurringDrafts } from "./services/planning";
 import { TransactionRecord } from "./services/DataService";
 import { TransactionData } from "./services/AIService";
@@ -133,7 +134,7 @@ export default class AccountingPlugin extends Plugin {
 
 		this.addSettingTab(new AccountingSettingTab(this.app, this));
 
-		this.addRibbonIcon('pie-chart', 'Open AI Accounting', () => {
+		this.addRibbonIcon('pie-chart', '打开记账面板', () => {
 			void this.activateView();
 		});
 
@@ -501,22 +502,11 @@ export default class AccountingPlugin extends Plugin {
 		let data = await this.loadData() as Partial<AccountingSettings> | null;
 		const imported = !data ? await this.importFromOldId() : null;
 		if (imported) data = imported;
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, data);
-		const s = this.settings;
-		// Gemini 1.5 models were retired; move the old default to the current one.
-		if (s.geminiModel === 'gemini-1.5-flash') s.geminiModel = DEFAULT_SETTINGS.geminiModel;
-		if (!Array.isArray(s.recurring)) s.recurring = [];
-		if (typeof s.budgetText !== 'string') s.budgetText = '';
-		if (!Array.isArray(s.apiEndpoints)) s.apiEndpoints = [];
-		// The single OpenAI setting from early versions becomes the first endpoint.
-		if (s.apiEndpoints.length === 0 && s.openaiApiKey) {
-			s.apiEndpoints.push({ id: 'migrated-default', name: 'OpenAI', endpoint: s.openaiEndpoint || 'https://api.openai.com/v1', apiKey: s.openaiApiKey, model: s.openaiModel || 'gpt-4o', enabled: true });
-			s.openaiApiKey = '';
-		}
+		this.settings = migrateSettings(data, DEFAULT_SETTINGS);
 		const movedKeys = this.moveKeysToSecretStorage();
 		if (imported || movedKeys) await this.saveData(this.settings);
 		if (imported) {
-			this.app.workspace.onLayoutReady(() => new Notice('AI Accounting：已导入旧版（AI Accounting Plugin）的设置。确认无误后可以在第三方插件里删除旧版。', 0));
+			this.app.workspace.onLayoutReady(() => new Notice('记账：已导入旧版插件的设置。确认无误后，可以在第三方插件里停用并删除旧版。', 0));
 		}
 	}
 
