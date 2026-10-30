@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.0
+
+- **Passes the community directory's review with no findings.** The TypeScript library is set to ES2021 instead of borrowing it from Node's typings, which the scanner does not install; it read 310 calls such as `Object.entries` as untyped.
+- Styles use no `!important`, `all` or `:has()`: buttons and the search field reset Obsidian's look property by property, reduced motion zeroes the kit's timing variables and also stops the *Where it went* chevron, and the last row of a settings group is marked by the plugin. Nothing else looks different.
+- `npm run lint` runs the directory's rules twice, once with full types and once without the dev typings, plus stylelint for those three CSS rules; any warning fails it. The old lint config that downgraded the unsafe-type rules to warnings is gone.
+
 ## 0.6.0
 
 - **AI services in one list.** Gemini and the OpenAI-compatible endpoints are now one list. Each service has its own address, model and key, with presets for DeepSeek (default), Qwen, SiliconFlow, Kimi, Zhipu GLM, Gemini, OpenAI and any OpenAI-compatible or local server. Settings from 0.5.x move over by themselves.

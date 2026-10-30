@@ -115,6 +115,8 @@ npm run lint
 
 ## Changelog
 
+**0.7.0:** no findings left in the community directory's review, with the same look. 
+
 **0.6.0:** one list of AI services with Chinese presets, a model list and a test that names the problem; drafts that survive closing; refunds, transfers and duplicate warnings; progress with Cancel and Retry; sample rows; English and Chinese interface. Full history in [CHANGELOG.md](CHANGELOG.md).
 
 ## License

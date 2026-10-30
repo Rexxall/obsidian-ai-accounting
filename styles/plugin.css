@@ -125,7 +125,7 @@
 .ai-accounting-dashboard-container .aa-analysis summary { margin: 0; cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between; }
 /* The disclosure chevron sits on the right so the title lines up with the other cards */
 .ai-accounting-dashboard-container .aa-analysis summary::-webkit-details-marker { display: none; }
-.ai-accounting-dashboard-container .aa-analysis summary::after { content: "›"; color: var(--ap-label-3); font-size: 18px; line-height: 1; transition: transform 0.2s; }
+.ai-accounting-dashboard-container .aa-analysis summary::after { content: "›"; color: var(--ap-label-3); font-size: 18px; line-height: 1; transition: transform var(--ap-base) var(--ap-ease); }
 .ai-accounting-dashboard-container .aa-analysis[open] summary::after { transform: rotate(90deg); }
 .ai-accounting-dashboard-container .aa-analysis[open] summary { margin-bottom: 8px; }
 .ai-accounting-dashboard-container .aa-analysis-body { display: flex; flex-direction: column; gap: 12px; }

@@ -132,9 +132,9 @@
 .ap-settings .setting-item:not(.setting-item-heading):first-child,
 .ap-settings .setting-item-heading + .setting-item,
 .ap-settings > :not(.setting-item) + .setting-item { border-top-left-radius: var(--ap-r-group); border-top-right-radius: var(--ap-r-group); }
-.ap-settings .setting-item:not(.setting-item-heading):has(+ .setting-item-heading),
-.ap-settings .setting-item:not(.setting-item-heading):last-child,
-.ap-settings .setting-item:not(.setting-item-heading):has(+ :not(.setting-item)) { border-bottom-left-radius: var(--ap-r-group); border-bottom-right-radius: var(--ap-r-group); }
+/* ap-group-end: the plugin marks the last row before a heading or any other block, for Obsidian versions that lay rows out flat */
+.ap-settings .setting-item.ap-group-end,
+.ap-settings .setting-item:not(.setting-item-heading):last-child { border-bottom-left-radius: var(--ap-r-group); border-bottom-right-radius: var(--ap-r-group); }
 .ap-settings .setting-item-heading { background: none; padding: var(--ap-s6) var(--ap-s4) var(--ap-s2); min-height: 0; }
 /* Obsidian pads plain rows 20px and list rows 16px; one inset puts every title, chevron, control and separator on the same two edges */
 .ap.ap-settings .setting-item { padding-inline: var(--ap-s4); }
@@ -189,7 +189,9 @@
   padding: 2px; border-radius: var(--ap-r-pill); background: var(--ap-fill);
 }
 .ap-seg button {
-  all: unset; cursor: pointer; text-align: center; white-space: nowrap;
+  /* Undo Obsidian's button look, property by property */
+  appearance: none; display: block; box-sizing: content-box; height: auto; margin: 0; border: 0; box-shadow: none; background: none; outline: none;
+  corner-shape: round; text-rendering: inherit; cursor: pointer; text-align: center; white-space: nowrap;
   font: 500 12px/16px var(--ap-font); color: var(--ap-label);
   padding: 5px 14px; border-radius: var(--ap-r-pill);
   transition: background var(--ap-base) var(--ap-ease), box-shadow var(--ap-base) var(--ap-ease);
@@ -202,7 +204,8 @@
 
 /* ---------- Buttons: capsules ---------- */
 .ap-btn {
-  all: unset; cursor: pointer; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  appearance: none; height: auto; margin: 0; border: 0; box-shadow: none; outline: none; corner-shape: round; text-rendering: inherit;
+  cursor: pointer; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   font: 500 13px/18px var(--ap-font); padding: 6px 14px; border-radius: var(--ap-r-pill);
   background: var(--ap-fill); color: var(--ap-label); white-space: nowrap;
   transition: background var(--ap-fast) var(--ap-ease), transform var(--ap-fast) var(--ap-ease);
@@ -228,7 +231,7 @@
 }
 .ap-field:focus { outline: none; box-shadow: 0 0 0 1px var(--ap-accent), 0 0 0 4px var(--ap-accent-tint); }
 .ap-search { display: flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: var(--ap-r-pill); background: var(--ap-fill); color: var(--ap-label-3); }
-.ap-search input { all: unset; flex: 1; min-width: 0; font: var(--ap-body); color: var(--ap-label); }
+.ap-search input { appearance: none; box-sizing: content-box; height: auto; margin: 0; padding: 0; border: 0; border-radius: 0; corner-shape: round; background: none; box-shadow: none; outline: none; text-rendering: inherit; cursor: auto; flex: 1; min-width: 0; font: var(--ap-body); color: var(--ap-label); }
 
 /* ---------- Sidebar list ---------- */
 .ap-list { display: grid; gap: 2px; padding: var(--ap-s1); }
@@ -336,7 +339,9 @@
 }
 /* Reduce motion: no movement, state changes are instant */
 @media (prefers-reduced-motion: reduce) {
-  .ap, .ap *, .modal.ap-modal { animation: none !important; transition: none !important; }
+  .ap, .modal.ap-modal { --ap-fast: 0s; --ap-base: 0s; --ap-slow: 0s; }
+  /* Repeated classes outrank the plugins' own transitions without !important */
+  .ap.ap.ap, .ap.ap.ap *, .modal.ap-modal.ap-modal.ap-modal { animation: none; transition: none; }
 }
 /* Phones: lighter blur, no blur on anything inside a scrolling list */
 .is-mobile .ap { --ap-blur: blur(16px) saturate(160%); --ap-blur-thin: blur(10px) saturate(150%); }
