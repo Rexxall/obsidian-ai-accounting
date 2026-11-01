@@ -56,7 +56,7 @@
 - **Duplicate warning.** A drafted row with the same date, currency and amount as a row already in the ledger is marked *Maybe already entered* and opens by itself, so you can leave it out.
 - **Drafts wait for you.** If you close the dialog, the draft is listed on the ledger under *To review*. The same receipt processed again reuses its draft instead of being sent to the AI a second time.
 - **Progress, Cancel and Retry.** While a receipt is read, a notice shows the step and which service is answering. *Cancel* stops waiting and drops the reply; on failure the notice says why (no key, key rejected, out of balance, model not found, no reply in time) and offers *Retry*, or *Open settings* when nothing is set up.
-- **Multi-currency.** Each row keeps its original amount and currency, the rate and the amount in your report currency.
+- **Multi-currency.** Each row keeps its original amount and currency, the rate and the amount in your report currency. When no rate can be fetched (offline, or a currency the rate service does not list), you type it in, starting from the last rate seen.
 - **Quick entry, split bills, members.** Enter a row by hand; split a bill evenly between members; give each member their own ledger folder and inbox.
 
 ## Reviewing and planning
@@ -95,7 +95,7 @@
 - **One table row per transaction**, ending with a hidden `<!-- aa:ID -->` marker. Edits and deletes find a row by that ID, so two identical coffees stay two rows.
 - **Safe cells.** Pipes, line breaks and `<` `>` are escaped, so a shop name cannot break the table.
 - **No stale overwrites.** If a ledger file changed since the dashboard read it, the plugin asks you to refresh instead of overwriting.
-- **Nothing half-written.** Every row is converted before the first write; if a rate is missing, nothing is written and the draft is kept.
+- **Nothing half-written.** Every row is converted before the first write; if you cancel entering a missing rate, nothing is written and the draft is kept.
 - **Archiving.** Once a draft from an inbox file is entered, the file moves to the archive folder, or to Obsidian's trash if none is set. It is never deleted outright.
 
 ```bash

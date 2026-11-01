@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- **No exchange rate, no dead end.** When a rate cannot be fetched (offline, or a currency the rate service does not list), a dialog asks for it, filled in with the last rate seen for that currency. Entering recurring expenses, drafts, samples, quick entries and date changes all use it; cancelling writes nothing. The rate is saved with each entry and reused for that day.
+- Settings say only what is sent where: inbox folders send files to the AI service at once, and to the next service if one fails.
+
 ## 0.7.0
 
 - **Passes the community directory's review with no findings.** The TypeScript library is set to ES2021 instead of borrowing it from Node's typings, which the scanner does not install; it read 310 calls such as `Object.entries` as untyped.

@@ -396,7 +396,7 @@ export class DashboardView extends ItemView {
         ];
         const userId = this.plugin.settings.currentUser || this.plugin.settings.users[0]?.id || 'default';
         try {
-            await this.plugin.saveTransactions(rows, userId, row => row.id || '');
+            if (!(await this.plugin.saveTransactions(rows, userId, row => row.id || ''))) return;
         } catch (error) {
             new Notice((error as Error).message, 7000);
             return;
@@ -729,8 +729,9 @@ export class DashboardView extends ItemView {
     }
 
 
-    /** Amount in the report currency and the rate used, or null after telling the user no rate could be fetched. */
+    /** Amount in the report currency and the rate used, or null when no rate was fetched or entered. */
     private async rateFor(amount: number, currency: string, date: string): Promise<{ baseAmount: number, rate: number } | null> {
+        if (!(await this.plugin.ensureRates([{ currency, date }]))) return null;
         try {
             const rate = await this.plugin.fxService.getExchangeRate(currency, this.plugin.settings.baseCurrency, date);
             return { baseAmount: amount * rate, rate };

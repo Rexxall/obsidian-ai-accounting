@@ -11,7 +11,7 @@ export interface ExchangeRateResponse {
 /** Thrown when no rate can be fetched and none is cached, for example offline. */
 export class RateUnavailableError extends Error {
     constructor() {
-        super(tr('No exchange rate available. Try again later or enter it by hand.', '取不到汇率，请稍后重试或手动填写。'));
+        super(tr('No exchange rate available, possibly because you are offline.', '取不到汇率，可能没联网。'));
         this.name = 'RateUnavailableError';
     }
 }
@@ -90,6 +90,34 @@ export class FXService {
             if (cached) return cached.rate;
             throw new RateUnavailableError();
         }
+    }
+
+    /** The rate, or null when it cannot be fetched and nothing is cached. */
+    async tryExchangeRate(from: string, to: string, date: string): Promise<number | null> {
+        try {
+            return await this.getExchangeRate(from, to, date);
+        } catch (error) {
+            if (error instanceof RateUnavailableError) return null;
+            throw error;
+        }
+    }
+
+    /** The most recently fetched or entered rate for this pair, on any date. */
+    lastKnownRate(from: string, to: string): { rate: number; date: string } | null {
+        let best: { rate: number; date: string; timestamp: number } | null = null;
+        for (const [key, entry] of this.cache) {
+            const [f, t, date] = key.split('_');
+            if (f !== from || t !== to || !date) continue;
+            if (!best || entry.timestamp > best.timestamp) best = { rate: entry.rate, date: date === 'latest' ? new Date(entry.timestamp).toISOString().slice(0, 10) : date, timestamp: entry.timestamp };
+        }
+        return best && { rate: best.rate, date: best.date };
+    }
+
+    /** A rate typed in by the user for one day; later conversions on that day use it too. */
+    async setManualRate(from: string, to: string, date: string, rate: number) {
+        await this.ready;
+        this.cache.set(`${from}_${to}_${date}`, { rate, timestamp: Date.now() });
+        await this.saveCache();
     }
 
     async convert(amount: number, from: string, to: string, date?: string): Promise<number> {

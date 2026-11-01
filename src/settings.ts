@@ -154,7 +154,7 @@ export class AccountingSettingTab extends PluginSettingTab {
 		return [
 			{ name: tr('Report currency', '报表币种'), desc: tr('Amounts in reports are converted to this currency; budgets use it too.', '报表金额统一换算为这个币种，预算也按它填写。'), control: { type: 'text', key: 'baseCurrency', placeholder: DEFAULT_SETTINGS.baseCurrency } },
 			{ name: tr('Default input currency', '默认输入币种'), desc: tr('Used when an entry does not name a currency.', '录入时没有注明币种，就使用这个默认值。'), control: { type: 'text', key: 'defaultInputCurrency', placeholder: DEFAULT_SETTINGS.defaultInputCurrency } },
-			{ name: tr('Receipt inbox', '票据收件箱'), desc: tr('Images and text put in this folder are sent to your AI service right away; the result waits as a draft until you review it. With several services, a failed one hands over to the next, so one receipt may reach more than one service. Leave empty to turn it off.', '放进这个文件夹的图片和文本会立即发给 AI 服务识别，结果先存成草稿，核对后才入账；配了多个服务时，一个失败就换下一个，同一张票据可能发给几家服务。留空即关闭。'), aliases: ['inbox'], control: { type: 'folder', key: 'magicFolderPath', placeholder: DEFAULT_SETTINGS.magicFolderPath } },
+			{ name: tr('Receipt inbox', '票据收件箱'), desc: tr('Images and text put here are sent to your AI service right away, and to the next service if one fails. Leave empty to turn it off.', '放进来的图片和文本会立即发给 AI 服务，一个失败时还会发给下一个。留空即关闭。'), aliases: ['inbox'], control: { type: 'folder', key: 'magicFolderPath', placeholder: DEFAULT_SETTINGS.magicFolderPath } },
 			{ name: tr('Archive folder', '处理后归档文件夹'), desc: tr('Inbox files move here once their draft is entered. Leave empty to move them to the trash.', '草稿入账后，把原文件移入此文件夹。留空则移到回收站。'), control: { type: 'folder', key: 'archiveFolderPath', placeholder: DEFAULT_SETTINGS.archiveFolderPath } },
 			{
 				type: 'list',
@@ -175,7 +175,7 @@ export class AccountingSettingTab extends PluginSettingTab {
 					name: `${i + 1}. ${ep.name || presetFor(ep.provider).name}`,
 					desc: !ep.enabled ? tr('Off', '已停用') : [ep.model, ep.vision ? tr('reads images', '能识图') : tr('text only', '只读文字')].filter(Boolean).join(' · '),
 					items: kitPage([
-						{ name: tr('On', '启用'), desc: tr('Services are tried top to bottom; a failed one hands over to the next.', '从上到下依次尝试，前一个失败就换下一个。'), control: { type: 'toggle', key: `apiEndpoints.${i}.enabled` } },
+						{ name: tr('On', '启用'), desc: tr('When one enabled service fails, the same receipt goes to the next.', '启用的服务里一个失败，同一张票据会发给下一个。'), control: { type: 'toggle', key: `apiEndpoints.${i}.enabled` } },
 						{ name: tr('Service', '服务商'), desc: tr('Choosing a service fills in its address and a suggested model.', '选好服务商会自动填上地址和推荐模型。'), control: { type: 'dropdown', key: `apiEndpoints.${i}.provider`, options: providerOptions } },
 						{ name: tr('Address', '接口地址'), desc: tr('Change it only for a proxy, another region or a local server.', '只有用代理、其他地区或本地服务时才需要改。'), control: { type: 'text', key: `apiEndpoints.${i}.endpoint`, placeholder: presetFor(ep.provider).baseUrl } },
 						{ name: tr('Model', '模型'), desc: tr('Type a model name, or fetch the list below.', '直接填模型名，或在下面取模型列表。'), control: { type: 'text', key: `apiEndpoints.${i}.model`, placeholder: presetFor(ep.provider).model } },
@@ -239,7 +239,7 @@ export class AccountingSettingTab extends PluginSettingTab {
 						{ name: tr('Name', '名字'), control: { type: 'text', key: `users.${i}.name` } },
 						{ name: tr('Colour', '颜色'), control: { type: 'color', key: `users.${i}.color` } },
 						{ name: tr('Ledger folder', '账本文件夹'), control: { type: 'folder', key: `users.${i}.folder` } },
-						{ name: tr('Own inbox', '专用收件箱'), desc: tr('Optional. Files put here are also sent to the AI service right away, and recorded under this member.', '可不填。放进这里的文件同样会立即发给 AI 服务，并记到这位成员名下。'), control: { type: 'folder', key: `users.${i}.inboxFolder` } }
+						{ name: tr('Own inbox', '专用收件箱'), desc: tr('Files put here are sent to your AI service right away and recorded under this member.', '放进来的文件会立即发给 AI 服务，记在这位成员名下。'), control: { type: 'folder', key: `users.${i}.inboxFolder` } }
 					])
 				}))
 			},

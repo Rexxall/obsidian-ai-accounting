@@ -1,6 +1,7 @@
 import { Notice, Plugin, TFile, TFolder, TAbstractFile, arrayBufferToBase64, WorkspaceLeaf, normalizePath } from 'obsidian';
 import { DEFAULT_SETTINGS, AccountingSettings, AccountingSettingTab } from "./settings";
 import { FXService } from "./services/FXService";
+import { ManualRateModal, MissingRate } from "./modals/ManualRateModal";
 import { AIService } from "./services/AIService";
 import { DataService } from "./services/DataService";
 import { DashboardView, VIEW_TYPE_DASHBOARD } from "./DashboardView";
@@ -161,11 +162,33 @@ export default class AccountingPlugin extends Plugin {
 		});
 	}
 
+	/** Makes sure every currency and date has a rate, asking for the ones that cannot be fetched. False when cancelled. */
+	async ensureRates(rows: { currency: string; date: string }[]): Promise<boolean> {
+		const base = this.settings.baseCurrency;
+		const missing: MissingRate[] = [];
+		const seen = new Set<string>();
+		for (const row of rows) {
+			const key = `${row.currency}|${row.date}`;
+			if (seen.has(key)) continue;
+			seen.add(key);
+			if (await this.fxService.tryExchangeRate(row.currency, base, row.date) === null) {
+				missing.push({ currency: row.currency, date: row.date, hint: this.fxService.lastKnownRate(row.currency, base) });
+			}
+		}
+		if (missing.length === 0) return true;
+		const rates = await new ManualRateModal(this.app, missing, base).ask();
+		if (!rates) return false;
+		for (const [i, m] of missing.entries()) await this.fxService.setManualRate(m.currency, base, m.date, rates[i] ?? 0);
+		return true;
+	}
+
 	/**
 	 * Write reviewed rows to the monthly ledgers (and daily notes when enabled).
 	 * Each row keeps a stable ID, so writing the same rows again adds nothing.
+	 * Null when the user cancels entering a missing exchange rate; nothing is written then.
 	 */
-	async saveTransactions(rows: TransactionData[], userId: string, idFor: (row: TransactionData, index: number) => string): Promise<string[]> {
+	async saveTransactions(rows: TransactionData[], userId: string, idFor: (row: TransactionData, index: number) => string): Promise<string[] | null> {
+		if (!(await this.ensureRates(rows))) return null;
 		const batches: Record<string, TransactionRecord[]> = {};
 		const dailyMap: Record<string, TransactionRecord[]> = {};
 		for (const [index, data] of rows.entries()) {
@@ -197,9 +220,8 @@ export default class AccountingPlugin extends Plugin {
 		const reviewed = await new ReviewImportModal(this.app, drafts, userName, tr(`${month} recurring`, `${month} 固定支出`), {}, tr('Recurring draft', '固定支出草稿')).review();
 		if (!reviewed?.length) return;
 		try {
-			await this.saveTransactions(reviewed, userId, row => row.id || '');
+			if (!(await this.saveTransactions(reviewed, userId, row => row.id || ''))) return;
 		} catch (error) {
-			// Nothing is written when a rate is missing: every row is converted before the first write.
 			new Notice((error as Error).message, 7000);
 			return;
 		}
@@ -385,14 +407,14 @@ export default class AccountingPlugin extends Plugin {
 			onKeep: async rows => { draft.rows = rows; await this.saveSettings(); }
 		}).review();
 		if (!result) return;
-		let months: string[];
+		let months: string[] | null;
 		try {
 			months = await this.saveTransactions(result, draft.userId, (_row, index) => `${draft.hash.slice(0, 32)}-${index}`);
 		} catch (error) {
-			// Nothing is written when a rate is missing: every row is converted before the first write.
 			new Notice(`${(error as Error).message} ${tr('The draft is kept.', '草稿已保留。')}`, 8000);
 			return;
 		}
+		if (!months) return;
 		await this.discardDraft(draft.id);
 		new Notice(tr(`Entered ${result.length} transaction(s)${userName ? ` for ${userName}` : ''}.`, `已入账 ${result.length} 笔${userName ? `（${userName}）` : ''}。`));
 		if (file && draft.appendArchive) await this.appendContentToArchiveMonthly(months.length > 0 ? months : [this.getCurrentYearMonth()], file, await this.app.vault.read(file));

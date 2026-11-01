@@ -75,6 +75,7 @@ export class EditTransactionModal extends Modal {
         const saveBtn = btnDiv.createEl('button', { text: tr('Save', '保存'), cls: 'mod-cta' });
         saveBtn.onclick = async () => {
             try {
+            if (date !== this.tx.date && !(await this.plugin.ensureRates([{ currency: this.tx.currency, date }]))) return;
             const rate = date === this.tx.date ? this.tx.rate : await this.plugin.fxService.getExchangeRate(this.tx.currency, this.plugin.settings.baseCurrency, date);
             const newTx: TransactionRecord = {
                 ...this.tx,
