@@ -86,6 +86,8 @@
 
 **手动：** 从最新版本下载 `main.js`、`manifest.json`、`styles.css`，放进 `<库>/.obsidian/plugins/ai-accounting/`，重新加载后启用。
 
+**核验下载：** 从 0.7.2 起，Release 附件由 GitHub Actions 构建并附构建来源认证，可以用 `gh attestation verify main.js --repo Rexxall/obsidian-ai-accounting` 核验。
+
 **从 0.4.0 或更早升级：** 插件 id 从 `ai-accounting-plugin` 改成了 `ai-accounting`。新插件首次启动会读一次旧设置，账本笔记不受影响，之后删掉旧插件即可。
 
 **从 0.5.x 升级：** Gemini 和 OpenAI 兼容接口合成一张“AI 服务”列表。不用做什么：每一项属于哪家服务会按地址自动判断，密钥也留在原处。

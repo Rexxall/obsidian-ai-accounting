@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Releases are built by GitHub Actions from the tag, with a build provenance attestation for `main.js`, `manifest.json` and `styles.css` (`gh attestation verify`). The release stops if the tag, `manifest.json`, `package.json`, the lockfile and `versions.json` disagree.
+- CI runs lint, tests and the build on Node 20 and 22 for every push and pull request.
+
 ## 0.7.1
 
 - **No exchange rate, no dead end.** When a rate cannot be fetched (offline, or a currency the rate service does not list), a dialog asks for it, filled in with the last rate seen for that currency. Entering recurring expenses, drafts, samples, quick entries and date changes all use it; cancelling writes nothing. The rate is saved with each entry and reused for that day.

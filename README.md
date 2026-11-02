@@ -86,6 +86,8 @@
 
 **Manually:** download `main.js`, `manifest.json` and `styles.css` from the latest release into `<vault>/.obsidian/plugins/ai-accounting/`, reload Obsidian and enable the plugin.
 
+**Checking a download:** from 0.7.2 on, GitHub Actions builds the release files and signs where they came from. Check one with `gh attestation verify main.js --repo Rexxall/obsidian-ai-accounting`.
+
 **From 0.4.0 or earlier:** the id changed from `ai-accounting-plugin` to `ai-accounting`. On first start the new plugin reads the old settings once; your ledger notes are untouched. Then remove the old plugin.
 
 **From 0.5.x:** Gemini and the OpenAI-compatible endpoints become one list of AI services. Nothing to do: the service each entry belongs to is worked out from its address, and your keys stay where they are.
