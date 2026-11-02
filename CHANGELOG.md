@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Receipts embedded in a note are read.** Running the command on a note (or dropping one in an inbox folder) used to send only the text, so `![[receipt.png]]` reached the AI as those words and the image never did. Now the images a note embeds (`![[…]]` or `![](…)`, up to six) go with the text to services that read images; with none, the message says to turn on *Reads images* or add such a service. The review shows the first image.
 - Releases are built by GitHub Actions from the tag, with a build provenance attestation for `main.js`, `manifest.json` and `styles.css` (`gh attestation verify`). The release stops if the tag, `manifest.json`, `package.json`, the lockfile and `versions.json` disagree.
 - CI runs lint, tests and the build on Node 20 and 22 for every push and pull request.
 

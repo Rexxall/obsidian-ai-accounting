@@ -168,10 +168,12 @@ export async function listModels(target: AiTarget, timeoutMs = 15000): Promise<s
     return data.map(m => m.id ?? '').filter(Boolean).sort();
 }
 
+export interface ChatImage { data: string; mimeType: string }
+
 export interface ChatInput {
     prompt: string;
-    /** Base64 image data, without the data: prefix. */
-    image?: { data: string; mimeType: string };
+    /** Images sent with the prompt: base64 data, without the data: prefix. */
+    images?: ChatImage[];
     json?: boolean;
     maxTokens?: number;
 }
@@ -183,7 +185,7 @@ export async function chat(target: AiTarget, input: ChatInput, timeoutMs = 90000
     const base = trimBase(target.baseUrl);
     if (target.provider === 'gemini') {
         const parts: ({ text: string } | { inlineData: { mimeType: string; data: string } })[] = [{ text: input.prompt }];
-        if (input.image) parts.unshift({ inlineData: { mimeType: input.image.mimeType, data: input.image.data } });
+        parts.unshift(...(input.images ?? []).map(image => ({ inlineData: { mimeType: image.mimeType, data: image.data } })));
         const generationConfig: Record<string, unknown> = { temperature: 0.1 };
         if (input.json) generationConfig.responseMimeType = 'application/json';
         if (input.maxTokens) generationConfig.maxOutputTokens = input.maxTokens;
@@ -199,10 +201,10 @@ export async function chat(target: AiTarget, input: ChatInput, timeoutMs = 90000
         return text;
     }
     const content: ({ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } })[] = [{ type: 'text', text: input.prompt }];
-    if (input.image) content.push({ type: 'image_url', image_url: { url: `data:${input.image.mimeType};base64,${input.image.data}` } });
+    for (const image of input.images ?? []) content.push({ type: 'image_url', image_url: { url: `data:${image.mimeType};base64,${image.data}` } });
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (target.apiKey) headers.Authorization = `Bearer ${target.apiKey}`;
-    const payload: Record<string, unknown> = { model: target.model, messages: [{ role: 'user', content: input.image ? content : input.prompt }], temperature: 0.1 };
+    const payload: Record<string, unknown> = { model: target.model, messages: [{ role: 'user', content: input.images?.length ? content : input.prompt }], temperature: 0.1 };
     if (input.maxTokens) payload.max_tokens = input.maxTokens;
     const post = (body: Record<string, unknown>) => send('chat', target, { url: `${base}/chat/completions`, method: 'POST', headers, body: JSON.stringify(body) }, timeoutMs, token);
     let response;

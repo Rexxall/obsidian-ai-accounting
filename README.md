@@ -12,7 +12,7 @@
 
 ## What it does
 
-- **Reads receipts and notes for you.** Drop a photo or a note into an inbox folder, or run a command on the current note. An AI service fills in date, shop, category, amount, currency and payment method.
+- **Reads receipts and notes for you.** Drop a photo or a note into an inbox folder, or run a command on the current note; receipts embedded in the note are read too. An AI service fills in date, shop, category, amount, currency and payment method.
 - **Never writes a guess straight into your books.** Every result waits as a draft until you check it. Closing the dialog keeps the draft; nothing is entered until you confirm.
 - **Keeps the books as plain Markdown.** One table per month in your vault, readable and editable without the plugin.
 
@@ -36,7 +36,7 @@
 
 | What | Sent to | When |
 |---|---|---|
-| The receipt image or note text you process | The AI services you set up, in the order listed | When you run the command, or as soon as a file lands in an inbox folder |
+| The receipt image or note text you process, and the images that note embeds | The AI services you set up, in the order listed | When you run the command, or as soon as a file lands in an inbox folder |
 | Currency pair and date (nothing else) | `frankfurter.app` | When a row's currency differs from the report currency |
 | A tiny "reply with ok" request | The service you are testing | Only when you click **Test** |
 

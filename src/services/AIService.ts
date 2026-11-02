@@ -1,5 +1,5 @@
 import { AccountingSettings, ApiEndpoint } from '../settings';
-import { AiError, AiTarget, CancelToken, chat, parseJsonArray, presetFor } from '../ai/providers';
+import { AiError, AiTarget, CancelToken, ChatImage, chat, parseJsonArray, presetFor } from '../ai/providers';
 import { tr } from '../i18n';
 
 export interface TransactionData {
@@ -36,10 +36,12 @@ export class AIService {
     }
 
     /**
-     * Reads transactions from text or an image (base64). Services are tried in order; a failed one
-     * hands over to the next. Throws the last AiError when none works.
+     * Reads transactions from text, images, or a note with its embedded images. Only services that read
+     * images get a request with images. Services are tried in order; a failed one hands over to the next.
+     * Throws the last AiError when none works.
      */
-    async processInput(content: string, isImage = false, mimeType = 'image/jpeg', hooks: ProcessHooks = {}): Promise<TransactionData[]> {
+    async processInput(text: string, images: ChatImage[] = [], hooks: ProcessHooks = {}): Promise<TransactionData[]> {
+        const isImage = images.length > 0;
         const candidates = this.services(isImage);
         if (candidates.length === 0) {
             throw new AiError('no-key', undefined, isImage && this.services(false).length > 0 ? 'no-vision' : 'no-service', 'chat');
@@ -50,8 +52,8 @@ export class AIService {
             hooks.onAttempt?.(ep.name || presetFor(ep.provider).name, index + 1, candidates.length);
             try {
                 const reply = await chat(this.target(ep), {
-                    prompt: isImage ? this.prompt() : `${this.prompt()}\n\nInput:\n${content}`,
-                    image: isImage ? { data: content, mimeType } : undefined,
+                    prompt: text.trim() ? `${this.prompt()}\n\nInput${isImage ? ' (the attached images belong to it)' : ''}:\n${text}` : this.prompt(),
+                    images,
                     json: true
                 }, 90000, hooks.token);
                 return this.normalizeDraft(parseJsonArray(reply));

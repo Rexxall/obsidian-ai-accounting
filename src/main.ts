@@ -12,6 +12,8 @@ import { recurringDrafts } from "./services/planning";
 import { TransactionRecord } from "./services/DataService";
 import { TransactionData, failureMessage } from "./services/AIService";
 import { ReviewSource } from "./modals/ReviewImportModal";
+import { IMAGE_TYPES, MAX_NOTE_IMAGES, embeddedImageLinks } from "./services/embeds";
+import { ChatImage } from "./ai/providers";
 import { PendingDraft } from "./settings";
 import { TaskProgress } from "./ai/progress";
 import { AiError } from "./ai/providers";
@@ -325,17 +327,21 @@ export default class AccountingPlugin extends Plugin {
 		const processingPath = file.path;
 		if (this.processingFiles.has(processingPath)) return;
 		const ext = file.extension.toLowerCase();
-		const isImage = ['jpg', 'jpeg', 'png', 'webp'].includes(ext);
+		const isImage = ext in IMAGE_TYPES;
 		if (!isImage && !['md', 'txt'].includes(ext)) return;
 		this.processingFiles.add(processingPath);
 		try {
-			const content = isImage ? arrayBufferToBase64(await this.app.vault.readBinary(file)) : await this.app.vault.read(file);
-			const hash = await sha256(content);
+			const text = isImage ? '' : await this.app.vault.read(file);
+			// An image file is sent as it is; a note goes with the images it embeds.
+			const imageFiles = isImage ? [file] : this.embeddedImages(file, text);
+			const images: ChatImage[] = [];
+			for (const image of imageFiles) images.push({ data: arrayBufferToBase64(await this.app.vault.readBinary(image)), mimeType: IMAGE_TYPES[image.extension.toLowerCase()] ?? 'image/jpeg' });
+			const hash = await sha256([text, ...images.map(image => image.data)].join('\n'));
 			// The same receipt reuses its draft instead of being sent to the AI again.
 			let draft = this.settings.drafts.find(d => d.hash === hash);
 			if (!draft) {
-				const userId = this.determineUserForFile(file, isImage ? '' : content);
-				const rows = await this.recognize(file.name, content, isImage, ext === 'jpg' ? 'image/jpeg' : `image/${ext}`,
+				const userId = this.determineUserForFile(file, text);
+				const rows = await this.recognize(file.name, text, images,
 					() => void this.processMagicFile(file, shouldArchive, appendToArchiveMonthly));
 				if (!rows) return;
 				if (rows.length === 0) {
@@ -359,12 +365,23 @@ export default class AccountingPlugin extends Plugin {
 		}
 	}
 
+	/** Image files a note embeds, resolved from its folder; at most MAX_NOTE_IMAGES, with a notice when more are left out. */
+	embeddedImages(note: TFile, text: string, notify = true): TFile[] {
+		const files: TFile[] = [];
+		for (const link of embeddedImageLinks(text)) {
+			const target = this.app.metadataCache.getFirstLinkpathDest(link, note.path) ?? this.app.vault.getFileByPath(normalizePath(link));
+			if (target && !files.includes(target)) files.push(target);
+		}
+		if (notify && files.length > MAX_NOTE_IMAGES) new Notice(tr(`${note.name} embeds ${files.length} images; the first ${MAX_NOTE_IMAGES} are read.`, `${note.name} 里有 ${files.length} 张图片，只读前 ${MAX_NOTE_IMAGES} 张。`));
+		return files.slice(0, MAX_NOTE_IMAGES);
+	}
+
 	/** Sends the input to the AI with a progress notice. Null when cancelled or failed (the notice offers Retry). */
-	private async recognize(name: string, content: string, isImage: boolean, mimeType: string, retry: () => void): Promise<TransactionData[] | null> {
+	private async recognize(name: string, text: string, images: ChatImage[], retry: () => void): Promise<TransactionData[] | null> {
 		const progress = new TaskProgress(tr(`Reading ${name}`, `识别 ${name}`), 'aa');
 		progress.step(tr('Preparing…', '准备中…'), 1, 3);
 		try {
-			const rows = await this.aiService.processInput(content, isImage, mimeType, {
+			const rows = await this.aiService.processInput(text, images, {
 				token: progress.token,
 				onAttempt: (service, index, total) => progress.step(total > 1
 					? tr(`Waiting for ${service} (service ${index} of ${total})…`, `等待 ${service} 回复（第 ${index}/${total} 个服务）…`)
@@ -400,7 +417,11 @@ export default class AccountingPlugin extends Plugin {
 		const file = draft.sourcePath ? this.app.vault.getFileByPath(draft.sourcePath) : null;
 		let preview: ReviewSource = {};
 		if (file && draft.kind === 'image') preview = { imageSrc: this.app.vault.getResourcePath(file) };
-		else if (file) preview = { text: (await this.app.vault.read(file)).slice(0, 1200) };
+		else if (file) {
+			const text = await this.app.vault.read(file);
+			const image = this.embeddedImages(file, text, false)[0];
+			preview = image ? { imageSrc: this.app.vault.getResourcePath(image) } : { text: text.slice(0, 1200) };
+		}
 		const result = await new ReviewImportModal(this.app, draft.rows, userName, draft.source, preview, tr('AI draft', 'AI 草稿'), {
 			duplicates: await this.findDuplicates(draft.rows),
 			onDiscard: async () => { await this.discardDraft(draft.id); new Notice(tr('Draft discarded. The original file is kept.', '已丢弃草稿，原始文件保留。')); },

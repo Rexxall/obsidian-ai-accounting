@@ -154,7 +154,7 @@ export class AccountingSettingTab extends PluginSettingTab {
 		return [
 			{ name: tr('Report currency', '报表币种'), desc: tr('Amounts in reports are converted to this currency; budgets use it too.', '报表金额统一换算为这个币种，预算也按它填写。'), control: { type: 'text', key: 'baseCurrency', placeholder: DEFAULT_SETTINGS.baseCurrency } },
 			{ name: tr('Default input currency', '默认输入币种'), desc: tr('Used when an entry does not name a currency.', '录入时没有注明币种，就使用这个默认值。'), control: { type: 'text', key: 'defaultInputCurrency', placeholder: DEFAULT_SETTINGS.defaultInputCurrency } },
-			{ name: tr('Receipt inbox', '票据收件箱'), desc: tr('Images and text put here are sent to your AI service right away, and to the next service if one fails. Leave empty to turn it off.', '放进来的图片和文本会立即发给 AI 服务，一个失败时还会发给下一个。留空即关闭。'), aliases: ['inbox'], control: { type: 'folder', key: 'magicFolderPath', placeholder: DEFAULT_SETTINGS.magicFolderPath } },
+			{ name: tr('Receipt inbox', '票据收件箱'), desc: tr('Images, text and the images a note embeds are sent to your AI service right away, and to the next service if one fails. Leave empty to turn it off.', '放进来的图片、文本和笔记里嵌入的图片会立即发给 AI 服务，一个失败时还会发给下一个。留空即关闭。'), aliases: ['inbox'], control: { type: 'folder', key: 'magicFolderPath', placeholder: DEFAULT_SETTINGS.magicFolderPath } },
 			{ name: tr('Archive folder', '处理后归档文件夹'), desc: tr('Inbox files move here once their draft is entered. Leave empty to move them to the trash.', '草稿入账后，把原文件移入此文件夹。留空则移到回收站。'), control: { type: 'folder', key: 'archiveFolderPath', placeholder: DEFAULT_SETTINGS.archiveFolderPath } },
 			{
 				type: 'list',
@@ -239,7 +239,7 @@ export class AccountingSettingTab extends PluginSettingTab {
 						{ name: tr('Name', '名字'), control: { type: 'text', key: `users.${i}.name` } },
 						{ name: tr('Colour', '颜色'), control: { type: 'color', key: `users.${i}.color` } },
 						{ name: tr('Ledger folder', '账本文件夹'), control: { type: 'folder', key: `users.${i}.folder` } },
-						{ name: tr('Own inbox', '专用收件箱'), desc: tr('Files put here are sent to your AI service right away and recorded under this member.', '放进来的文件会立即发给 AI 服务，记在这位成员名下。'), control: { type: 'folder', key: `users.${i}.inboxFolder` } }
+						{ name: tr('Own inbox', '专用收件箱'), desc: tr('Files put here, with the images a note embeds, are sent to your AI service right away and recorded under this member.', '放进来的文件连同笔记里嵌入的图片会立即发给 AI 服务，记在这位成员名下。'), control: { type: 'folder', key: `users.${i}.inboxFolder` } }
 					])
 				}))
 			},
