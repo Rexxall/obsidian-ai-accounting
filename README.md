@@ -117,6 +117,8 @@ npm run lint
 
 ## Changelog
 
+**0.7.2:** receipt images embedded in a note (`![[…]]` or `![](…)`, up to six) are sent with its text to services that read images.
+
 **0.7.1:** when no exchange rate can be fetched, you type it in instead of the entry failing; settings say only what is sent where. 
 
 **0.7.0:** no findings left in the community directory's review, with the same look. 
