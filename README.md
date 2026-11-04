@@ -38,13 +38,16 @@
 |---|---|---|
 | The receipt image or note text you process, and the images that note embeds | The AI services you set up, in the order listed | When you run the command, or as soon as a file lands in an inbox folder |
 | Currency pair and date (nothing else) | `frankfurter.app` | When a row's currency differs from the report currency |
-| A tiny "reply with ok" request | The service you are testing | Only when you click **Test** |
+| A request for the model list, then a tiny "reply with ok" request | The service you are testing | Only when you click **Test** (or **Fetch list**, which sends only the model-list request) |
+
+The plugin makes no other network requests.
 
 - **API keys** live in Obsidian's secret storage on this device. The plugin's settings file keeps only the key's name, so keys are not synced with your vault: on a new device, choose the key again in settings.
 - **Ledgers, drafts and settings** stay in your vault (`Finances/YYYY-MM.md` and the plugin's `data.json`).
 - **Inbox folders send right away.** While an inbox folder is set, every image or text file put in it goes to the AI service at once. Leave the folder empty to turn this off.
 - **Several services may see one receipt.** If the first service fails, the next enabled one is tried. Keep only services you trust in the list.
 - **Diagnostics** (the copy button next to **Test**) contain the service, address, model, step and error, but no key and no ledger content.
+- **Clipboard:** that copy button is the plugin's only use of the clipboard. It writes the diagnostics when you click it, and the plugin never reads the clipboard.
 
 ## Recording
 
@@ -107,7 +110,7 @@ npm test        # ledger, migration, AI service and request tests
 npm run lint
 ```
 
-`styles.css` is generated: edit `styles/plugin.css` and run `npm run styles`.
+`styles.css` is generated: edit `styles/plugin.css` and run `npm run styles`. For CI, releases and reporting issues, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Known limits
 
@@ -133,4 +136,4 @@ MIT
 
 ## 日本語
 
-レシート写真やノートを、多通貨の Markdown 家計簿に変えます。AI が下書きを作り、あなたが確認してから記帳します。下書きは閉じても残り、確定するまで帳簿には入りません。AI サービスは DeepSeek、通義、SiliconFlow、Kimi、智譜、Gemini、OpenAI、ローカルサーバーから選べ、接続テストで原因（キーなし、認証失敗、残高不足、モデルなし、タイムアウト）を表示します。API キーはこの端末の Obsidian シークレット保存にあり、同期されません。プラグインは無料で、AI の利用料は各サービスに直接支払います。
+レシート写真やノートを、多通貨の Markdown 家計簿に変えます。AI が下書きを作り、あなたが確認してから記帳します。下書きは閉じても残り、確定するまで帳簿には入りません。AI サービスは DeepSeek、通義、SiliconFlow、Kimi、智譜、Gemini、OpenAI、ローカルサーバーから選べ、接続テストで原因（キーなし、認証失敗、残高不足、モデルなし、タイムアウト）を表示します。API キーはこの端末の Obsidian シークレット保存にあり、同期されません。通信先は設定した AI サービスと為替レートの `frankfurter.app` だけです。クリップボードは、接続テストの診断情報をコピーするボタンを押したときに書き込むだけで、読み取りはしません。プラグインは無料で、AI の利用料は各サービスに直接支払います。
