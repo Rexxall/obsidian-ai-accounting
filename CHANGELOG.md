@@ -2,7 +2,8 @@
 
 ## Unreleased
 
-- **Monthly ledgers no longer share a name with monthly notes.** New ledgers are `账本 2026-01.md` (`Ledger 2026-01.md` with an English interface) and source archives `账本原文 2026-01.md`, so `[[2026-01]]` keeps pointing at the monthly note. Ledgers named `2026-01.md` are still read and written; the command *Rename monthly ledgers so they do not clash with monthly notes* renames them after showing the list, and Obsidian updates the links.
+- **Monthly ledgers no longer share a name with monthly notes.** New ledgers are `账本 2026-01.md` (`Ledger 2026-01.md` with an English interface) and source archives `账本原文 2026-01.md`, so `[[2026-01]]` keeps pointing at the monthly note. Ledgers named `2026-01.md` are still read and written; the command *Rename monthly ledgers so they do not clash with monthly notes* renames them after showing the list and points links that name the folder at the new files; a bare `[[2026-01]]` is left to the monthly note.
+- The saved exchange rates are read the first time a rate is needed instead of while Obsidian starts.
 
 ## 0.7.2
 

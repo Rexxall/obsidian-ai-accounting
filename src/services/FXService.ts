@@ -23,10 +23,14 @@ export class FXService {
 
     constructor(private app: App, pluginDir: string) {
         this.CACHE_FILE = `${pluginDir}/rates_cache.json`;
-        this.ready = this.loadCache();
     }
 
-    private ready: Promise<void>;
+    private loading: Promise<void> | null = null;
+
+    /** The saved rates, read on first use rather than while Obsidian starts. */
+    private get ready(): Promise<void> {
+        return this.loading ??= this.loadCache();
+    }
 
     private async loadCache() {
         if (await this.app.vault.adapter.exists(this.CACHE_FILE)) {

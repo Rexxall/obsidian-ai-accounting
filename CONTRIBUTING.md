@@ -13,6 +13,8 @@ Keep what the plugin sends and stores as the README's *Where your data goes* des
 
 CI runs lint, tests and a build on Node 20 and 22 for every push to `main` and every pull request, and fails if the build changes the committed `styles.css` or `manifest.json`. Pushing a version tag such as `0.7.2` runs the release workflow: it checks the tag against `manifest.json`, `package.json`, `package-lock.json` and `versions.json`, runs the same checks, attests `main.js`, `manifest.json` and `styles.css`, and creates the release with that version's CHANGELOG section as its notes.
 
+Before a release, check startup time: reload Obsidian with the plugin enabled and time its `onload`. It should stay under 50 ms on a vault with a year of data. Anything that reads many files, calls the network or renders waits for `onLayoutReady` or runs on first use.
+
 ## Issues
 
 Report bugs and ideas in [GitHub Issues](https://github.com/Rexxall/obsidian-ai-accounting/issues). For a problem with an AI service, click **Test** next to it in settings, then the copy button beside it, and paste those diagnostics: they contain the service, address, model, step and error, but no key and no ledger content. Never paste an API key, and replace real receipts and amounts with made-up ones.
