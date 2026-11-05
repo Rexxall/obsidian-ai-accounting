@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="400" viewBox="0 0 1200 400" role="img" aria-labelledby="t d">
+  <title id="t">AI Accounting</title>
+  <desc id="d">拍一张小票， 核对两行，就进了账本。 一张便利店小票变成两行草稿：饭团和绿茶 450 日元、本子和圆珠笔 330 日元，各带分类，等你确认入账。</desc>
+  <rect width="1200" height="400" rx="28" fill="#15141B"/>
+  <g id="title-block" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans', sans-serif">
+    <text x="64" y="118" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans', sans-serif" font-size="17" letter-spacing="1" fill="#A48BFF">OBSIDIAN 插件 · AI 起草，你来确认</text>
+    <text x="62" y="196" font-size="64" font-weight="700" letter-spacing="-1.5" fill="#EEECF5">AI Accounting</text>
+    <text x="64" y="252" font-size="29" fill="#EEECF5">拍一张小票，</text>
+    <text x="64" y="292" font-size="29" fill="#9C98AF">核对两行，就进了账本。</text>
+    <text x="64" y="346" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans', sans-serif" font-size="17" fill="#9C98AF">自己的密钥或本地模型 · Markdown 账本</text>
+  </g>
+  <g id="project-proof" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans', sans-serif">
+    <rect x="700" y="48" width="436" height="304" rx="20" fill="#1E1D26" stroke="#2C2A36"/>
+    <rect x="724" y="74" width="128" height="250" rx="10" fill="#15141B" stroke="#2C2A36"/>
+    <rect x="752" y="92" width="72" height="10" rx="5" fill="#9C98AF"/>
+    <rect x="740" y="118" width="70" height="6" rx="3" fill="#2C2A36"/><rect x="740" y="138" width="90" height="6" rx="3" fill="#2C2A36"/><rect x="740" y="166" width="96" height="6" rx="3" fill="#2C2A36"/><rect x="740" y="182" width="80" height="6" rx="3" fill="#2C2A36"/><rect x="740" y="198" width="88" height="6" rx="3" fill="#2C2A36"/><rect x="740" y="222" width="70" height="6" rx="3" fill="#2C2A36"/><rect x="740" y="238" width="84" height="6" rx="3" fill="#2C2A36"/><rect x="740" y="262" width="60" height="6" rx="3" fill="#2C2A36"/>
+    <path d="M864 199 H884" stroke="#A48BFF" stroke-width="3" stroke-linecap="round"/>
+    <path d="M878 192 L886 199 L878 206" fill="none" stroke="#A48BFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="896" y="84" width="216" height="80" rx="14" fill="#15141B"/>
+    <text x="912" y="112" font-size="16" fill="#EEECF5">饭团、绿茶</text>
+    <rect x="912" y="126" width="61" height="24" rx="12" fill="#2C2643"/>
+    <text x="942.5" y="143" font-size="13" text-anchor="middle" fill="#A48BFF">便利店</text>
+    <text x="1098" y="144" font-size="18" font-weight="600" text-anchor="end" fill="#EEECF5">¥450</text>
+    <rect x="896" y="176" width="216" height="80" rx="14" fill="#15141B"/>
+    <text x="912" y="204" font-size="16" fill="#EEECF5">本子、圆珠笔</text>
+    <rect x="912" y="218" width="48" height="24" rx="12" fill="#2C2643"/>
+    <text x="936.0" y="235" font-size="13" text-anchor="middle" fill="#A48BFF">文具</text>
+    <text x="1098" y="236" font-size="18" font-weight="600" text-anchor="end" fill="#EEECF5">¥330</text>
+    <rect x="896" y="276" width="216" height="44" rx="22" fill="#A48BFF"/>
+    <text x="1004" y="304" font-size="18" font-weight="600" text-anchor="middle" fill="#1E1D26">确认 2 笔入账</text>
+  </g>
+</svg>

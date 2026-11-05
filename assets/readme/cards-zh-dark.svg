@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="190" viewBox="0 0 1200 190" role="img" aria-labelledby="t d">
+<title id="t">AI Accounting 能做什么</title>
+<desc id="d">不核对不入账：AI 起草的每一笔都等你核对。纯 Markdown：每月一张表，放在你的库里。哪种币都行：每行保留原币金额，并换算成报表币种。</desc>
+<g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans', sans-serif">
+<rect x="24" y="16" width="368" height="158" rx="22" fill="#15141B" stroke="#2C2A36"/>
+<rect x="52" y="44" width="48" height="48" rx="14" fill="#2C2643"/>
+<path d="M65 69 L73 77 L88 60" fill="none" stroke="#5CC892" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="120" y="78" font-size="26" font-weight="700" fill="#EEECF5">不核对不入账</text>
+<text x="52" y="138" font-size="20" fill="#9C98AF">每份草稿都等你确认</text>
+<rect x="416" y="16" width="368" height="158" rx="22" fill="#15141B" stroke="#2C2A36"/>
+<rect x="444" y="44" width="48" height="48" rx="14" fill="#2C2643"/>
+<rect x="455" y="57" width="26" height="22" rx="4" fill="none" stroke="#A48BFF" stroke-width="2.5"/><path d="M455 65 H481 M455 72 H481 M465 57 V79" stroke="#A48BFF" stroke-width="2"/>
+<text x="512" y="78" font-size="26" font-weight="700" fill="#EEECF5">纯 Markdown</text>
+<text x="444" y="138" font-size="20" fill="#9C98AF">每月一张表，归你所有</text>
+<rect x="808" y="16" width="368" height="158" rx="22" fill="#15141B" stroke="#2C2A36"/>
+<rect x="836" y="44" width="48" height="48" rx="14" fill="#2C2643"/>
+<text x="860" y="75" font-size="16" font-weight="700" text-anchor="middle" fill="#A48BFF" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans', sans-serif">¥$</text>
+<text x="904" y="78" font-size="26" font-weight="700" fill="#EEECF5">哪种币都行</text>
+<text x="836" y="138" font-size="20" fill="#9C98AF">原币保留，自动换算</text>
+</g></svg>

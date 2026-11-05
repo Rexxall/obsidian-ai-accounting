@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="400" viewBox="0 0 1200 400" role="img" aria-labelledby="t d">
+  <title id="t">AI Accounting</title>
+  <desc id="d">Snap a receipt. Check two lines. It's in your ledger. A convenience store receipt becomes two draft lines, onigiri and green tea for 450 yen and a notebook and pen for 330 yen, each with a category, waiting to be recorded.</desc>
+  <rect width="1200" height="400" rx="28" fill="#F7F6FB"/>
+  <g id="title-block" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans', sans-serif">
+    <text x="64" y="118" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="17" letter-spacing="2" fill="#7A5AF0">OBSIDIAN PLUGIN · AI DRAFTS, YOU CONFIRM</text>
+    <text x="62" y="196" font-size="64" font-weight="700" letter-spacing="-1.5" fill="#1D1B26">AI Accounting</text>
+    <text x="64" y="252" font-size="29" fill="#1D1B26">Snap a receipt.</text>
+    <text x="64" y="292" font-size="29" fill="#6B6780">Check two lines. It's in your ledger.</text>
+    <text x="64" y="346" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="17" fill="#6B6780">your own key or a local model · Markdown ledger</text>
+  </g>
+  <g id="project-proof" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans', sans-serif">
+    <rect x="700" y="48" width="436" height="304" rx="20" fill="#FFFFFF" stroke="#E4E1EE"/>
+    <rect x="724" y="74" width="128" height="250" rx="10" fill="#F7F6FB" stroke="#E4E1EE"/>
+    <rect x="752" y="92" width="72" height="10" rx="5" fill="#6B6780"/>
+    <rect x="740" y="118" width="70" height="6" rx="3" fill="#E4E1EE"/><rect x="740" y="138" width="90" height="6" rx="3" fill="#E4E1EE"/><rect x="740" y="166" width="96" height="6" rx="3" fill="#E4E1EE"/><rect x="740" y="182" width="80" height="6" rx="3" fill="#E4E1EE"/><rect x="740" y="198" width="88" height="6" rx="3" fill="#E4E1EE"/><rect x="740" y="222" width="70" height="6" rx="3" fill="#E4E1EE"/><rect x="740" y="238" width="84" height="6" rx="3" fill="#E4E1EE"/><rect x="740" y="262" width="60" height="6" rx="3" fill="#E4E1EE"/>
+    <path d="M864 199 H884" stroke="#7A5AF0" stroke-width="3" stroke-linecap="round"/>
+    <path d="M878 192 L886 199 L878 206" fill="none" stroke="#7A5AF0" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="896" y="84" width="216" height="80" rx="14" fill="#F7F6FB"/>
+    <text x="912" y="112" font-size="16" fill="#1D1B26">Onigiri, green tea</text>
+    <rect x="912" y="126" width="148" height="24" rx="12" fill="#EEE9FF"/>
+    <text x="986.0" y="143" font-size="13" text-anchor="middle" fill="#7A5AF0">Convenience store</text>
+    <text x="1098" y="144" font-size="18" font-weight="600" text-anchor="end" fill="#1D1B26">¥450</text>
+    <rect x="896" y="176" width="216" height="80" rx="14" fill="#F7F6FB"/>
+    <text x="912" y="204" font-size="16" fill="#1D1B26">Notebook, pen</text>
+    <rect x="912" y="218" width="96" height="24" rx="12" fill="#EEE9FF"/>
+    <text x="960.0" y="235" font-size="13" text-anchor="middle" fill="#7A5AF0">Stationery</text>
+    <text x="1098" y="236" font-size="18" font-weight="600" text-anchor="end" fill="#1D1B26">¥330</text>
+    <rect x="896" y="276" width="216" height="44" rx="22" fill="#7A5AF0"/>
+    <text x="1004" y="304" font-size="18" font-weight="600" text-anchor="middle" fill="#FFFFFF">Record 2</text>
+  </g>
+</svg>

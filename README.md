@@ -1,29 +1,100 @@
-<div align="center">
+<p align="right"><a href="README.zh.md">中文</a> · <a href="#日本語">日本語</a></p>
 
-# AI Accounting
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/readme/hero-dark.svg">
+  <img src="assets/readme/hero-light.svg" width="100%" alt="AI Accounting: snap a receipt, check two lines, and it is in your ledger. A convenience store receipt becomes two draft lines, onigiri and green tea, and a notebook and pen, each with a category, waiting to be recorded.">
+</picture>
+
+<p align="center"><a href="https://community.obsidian.md/plugins/ai-accounting"><b>Install from Obsidian</b></a></p>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/readme/demo-dark.gif">
+  <img src="assets/readme/demo-light.gif" width="100%" alt="Reading a note with a receipt photo: the AI drafts two lines, food and stationery, next to the receipt; after a check they are entered and appear in the month's ledger.">
+</picture>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/readme/cards-dark.svg">
+  <img src="assets/readme/cards-light.svg" width="100%" alt="Nothing unchecked: every draft waits for you. Plain Markdown: one table a month, yours. Any currency: kept as paid, converted.">
+</picture>
+
+## Start in three steps
+
+1. Install **AI Accounting** from *Settings → Community plugins → Browse*, enable it and click the pie-chart icon in the left ribbon.
+2. In **Settings → AI Accounting → AI services → Add service**, choose a service and your key, then click **Test**.
+3. Open a note with a receipt photo and run **AI Accounting: Read the current note into the ledger**.
+
+No AI yet? Click **Add** to record by hand, or **Load samples** on the empty ledger.
+
+**Needs** Obsidian 1.13 or later, desktop or mobile. **Costs** nothing for the plugin; reading receipts uses your own key or a local model.
+
+## Everything else
+
+<details>
+<summary><b>Every feature</b></summary>
 
 **Turn receipt photos and notes into a multi-currency Markdown ledger. The AI drafts each entry, you check it, then it is saved.**
 
-[中文说明 →](README.zh.md) · [日本語](#日本語)
-
 <img src="docs/screenshots/hero.jpg" width="900" alt="The ledger for October: rows grouped by day, the month's total, budget bars and where the money went">
-
-</div>
-
-## What it does
 
 - **Reads receipts and notes for you.** Drop a photo or a note into an inbox folder, or run a command on the current note; receipts embedded in the note are read too. An AI service fills in date, shop, category, amount, currency and payment method.
 - **Never writes a guess straight into your books.** Every result waits as a draft until you check it. Closing the dialog keeps the draft; nothing is entered until you confirm.
 - **Keeps the books as plain Markdown.** One table per month in your vault, readable and editable without the plugin.
 
-## Start here
+**Recording**
+
+<img src="docs/screenshots/review.jpg" width="900" alt="Review dialog: four drafted rows, one marked Transfer, one Refund, one missing its date">
+
+*Every AI result is a draft. Mark a row as expense, refund or transfer, fix what was misread, leave a row out, then enter the rest.*
+
+- **Refunds and transfers.** A refund is a negative amount in the original category. A transfer between your own accounts (top-ups, card repayments) uses the top-level category *Transfer* (转账); it stays in the list but is not counted as spending.
+- **Duplicate warning.** A drafted row with the same date, currency and amount as a row already in the ledger is marked *Maybe already entered* and opens by itself, so you can leave it out.
+- **Drafts wait for you.** If you close the dialog, the draft is listed on the ledger under *To review*. The same receipt processed again reuses its draft instead of being sent to the AI a second time.
+- **Progress, Cancel and Retry.** While a receipt is read, a notice shows the step and which service is answering. *Cancel* stops waiting and drops the reply; on failure the notice says why (no key, key rejected, out of balance, model not found, no reply in time) and offers *Retry*, or *Open settings* when nothing is set up.
+- **Statements from your bank or payment app.** *Import a bank or payment app statement (CSV)*, or right-click a CSV in the vault. Alipay, WeChat Pay, Japanese bank and card exports and plain Date / Description / Amount files are read on this device: dates and amounts come from the file, never from AI. Income is left out; refunds and moves between your own accounts are recognised. Each row is filed the way you filed the same shop before; only the rest go to your AI service, and only their description, amount and currency. AI-suggested categories are marked in the review, and nothing is entered until you confirm.
+- **Multi-currency.** Each row keeps its original amount and currency, the rate and the amount in your report currency. When no rate can be fetched (offline, or a currency the rate service does not list), you type it in, starting from the last rate seen.
+- **Quick entry, split bills, members.** Enter a row by hand; split a bill evenly between members; give each member their own ledger folder and inbox.
+
+**Reviewing and planning**
+
+<img src="docs/screenshots/charts.jpg" width="900" alt="Charts: spending by category, monthly trend, payment methods">
+
+*Charts follow your theme. Click a category for its subcategories.*
+
+- Ledger grouped by day, search and filters, edit and delete (delete asks twice), rename a category across the ledger, CSV export, optional copy to daily notes. In a narrow pane or on a phone, tap a row to edit it.
+- **Monthly budgets** per category, with bars on the ledger page: orange from 80%, red when over.
+- **Ledger view for Bases.** In a base of monthly ledgers (or any notes with an amount), switch the view to *Ledger*: the total, the average and one bar per note in your report currency, with a subtotal for each group when the base is grouped, for example by member folder. Monthly ledgers are picked up by their `total_expense`. With Bases turned off nothing changes.
+- **Recurring expenses** such as rent: set once, add each month through the review dialog, never twice in one month.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/readme/bases-dark.png">
+  <img src="assets/readme/bases-light.png" width="100%" alt="The Ledger view in a base of monthly ledgers: the total and average on one line, then one bar per month, grouped by member folder with a subtotal for each.">
+</picture>
+
+**Start here, step by step**
 
 1. Install and enable **AI Accounting**, then click the pie-chart icon in the left ribbon.
 2. On an empty ledger, click **Load samples**. Three made-up rows appear (a purchase, a fare and a refund), marked as samples; **Remove samples** deletes them.
 3. Click **Add** to record your own expense by hand. No AI service is needed for that, or for charts, budgets and CSV export.
 4. To read receipts, open **Settings → AI Accounting → AI services → Add service**. DeepSeek is suggested first; pick another service if you like, choose your key, then click **Test**.
 
-## What it needs and what it costs
+</details>
+
+<details>
+<summary><b>AI services</b></summary>
+
+<img src="docs/screenshots/ai-settings.jpg" width="900" alt="Settings for one AI service: service, address, model, model list, reads images, key, test connection">
+
+*Service, address, model and key are separate. Test tells you exactly what is wrong.*
+
+- **Presets:** DeepSeek (default), Qwen (Alibaba Model Studio), SiliconFlow, Kimi, Zhipu GLM, Google Gemini, OpenAI, and any other OpenAI-compatible or local server.
+- **Model list** asks the service which models your key can use (free). Model names change often; pick from the list rather than typing.
+- **Reads images:** turn it on only for models that accept pictures. Image receipts skip services without it.
+- **Test connection** first checks the model list (free), then sends one very short request (a few tokens, well under one cent).
+
+</details>
+
+<details>
+<summary><b>What it needs and where your data goes</b></summary>
 
 | | |
 |---|---|
@@ -31,8 +102,6 @@
 | The plugin | Free, MIT licence. No account, no server of ours, no analytics. |
 | AI model | Optional. You use your own key and pay your AI provider for what you send; the plugin adds nothing. A receipt is usually a few thousand tokens. Local models through an OpenAI-compatible server cost nothing. |
 | Exchange rates | Free, from `frankfurter.app`, cached in the plugin folder |
-
-## Where your data goes
 
 | What | Sent to | When |
 |---|---|---|
@@ -50,43 +119,10 @@ The plugin makes no other network requests.
 - **Diagnostics** (the copy button next to **Test**) contain the service, address, model, step and error, but no key and no ledger content.
 - **Clipboard:** that copy button is the plugin's only use of the clipboard. It writes the diagnostics when you click it, and the plugin never reads the clipboard.
 
-## Recording
+</details>
 
-<img src="docs/screenshots/review.jpg" width="900" alt="Review dialog: four drafted rows, one marked Transfer, one Refund, one missing its date">
-
-*Every AI result is a draft. Mark a row as expense, refund or transfer, fix what was misread, leave a row out, then enter the rest.*
-
-- **Refunds and transfers.** A refund is a negative amount in the original category. A transfer between your own accounts (top-ups, card repayments) uses the top-level category *Transfer* (转账); it stays in the list but is not counted as spending.
-- **Duplicate warning.** A drafted row with the same date, currency and amount as a row already in the ledger is marked *Maybe already entered* and opens by itself, so you can leave it out.
-- **Drafts wait for you.** If you close the dialog, the draft is listed on the ledger under *To review*. The same receipt processed again reuses its draft instead of being sent to the AI a second time.
-- **Progress, Cancel and Retry.** While a receipt is read, a notice shows the step and which service is answering. *Cancel* stops waiting and drops the reply; on failure the notice says why (no key, key rejected, out of balance, model not found, no reply in time) and offers *Retry*, or *Open settings* when nothing is set up.
-- **Statements from your bank or payment app.** *Import a bank or payment app statement (CSV)*, or right-click a CSV in the vault. Alipay, WeChat Pay, Japanese bank and card exports and plain Date / Description / Amount files are read on this device: dates and amounts come from the file, never from AI. Income is left out; refunds and moves between your own accounts are recognised. Each row is filed the way you filed the same shop before; only the rest go to your AI service, and only their description, amount and currency. AI-suggested categories are marked in the review, and nothing is entered until you confirm.
-- **Multi-currency.** Each row keeps its original amount and currency, the rate and the amount in your report currency. When no rate can be fetched (offline, or a currency the rate service does not list), you type it in, starting from the last rate seen.
-- **Quick entry, split bills, members.** Enter a row by hand; split a bill evenly between members; give each member their own ledger folder and inbox.
-
-## Reviewing and planning
-
-<img src="docs/screenshots/charts.jpg" width="900" alt="Charts: spending by category, monthly trend, payment methods">
-
-*Charts follow your theme. Click a category for its subcategories.*
-
-- Ledger grouped by day, search and filters, edit and delete (delete asks twice), rename a category across the ledger, CSV export, optional copy to daily notes. In a narrow pane or on a phone, tap a row to edit it.
-- **Monthly budgets** per category, with bars on the ledger page: orange from 80%, red when over.
-- **Ledger view for Bases.** In a base of monthly ledgers (or any notes with an amount), switch the view to *Ledger*: the total, the average and one bar per note in your report currency, with a subtotal for each group when the base is grouped, for example by member folder. Monthly ledgers are picked up by their `total_expense`. With Bases turned off nothing changes.
-- **Recurring expenses** such as rent: set once, add each month through the review dialog, never twice in one month.
-
-## AI services
-
-<img src="docs/screenshots/ai-settings.jpg" width="900" alt="Settings for one AI service: service, address, model, model list, reads images, key, test connection">
-
-*Service, address, model and key are separate. Test tells you exactly what is wrong.*
-
-- **Presets:** DeepSeek (default), Qwen (Alibaba Model Studio), SiliconFlow, Kimi, Zhipu GLM, Google Gemini, OpenAI, and any other OpenAI-compatible or local server.
-- **Model list** asks the service which models your key can use (free). Model names change often; pick from the list rather than typing.
-- **Reads images:** turn it on only for models that accept pictures. Image receipts skip services without it.
-- **Test connection** first checks the model list (free), then sends one very short request (a few tokens, well under one cent).
-
-## Install
+<details>
+<summary><b>Install by hand, and upgrading</b></summary>
 
 **From Obsidian (once listed):** Settings → Community plugins → Browse, search for **AI Accounting**.
 
@@ -98,13 +134,30 @@ The plugin makes no other network requests.
 
 **From 0.5.x:** Gemini and the OpenAI-compatible endpoints become one list of AI services. Nothing to do: the service each entry belongs to is worked out from its address, and your keys stay where they are.
 
-## How it works
+</details>
+
+<details>
+<summary><b>How it works</b></summary>
 
 - **One table row per transaction**, ending with a hidden `<!-- aa:ID -->` marker. Edits and deletes find a row by that ID, so two identical coffees stay two rows.
 - **Safe cells.** Pipes, line breaks and `<` `>` are escaped, so a shop name cannot break the table.
 - **No stale overwrites.** If a ledger file changed since the dashboard read it, the plugin asks you to refresh instead of overwriting.
 - **Nothing half-written.** Every row is converted before the first write; if you cancel entering a missing rate, nothing is written and the draft is kept.
 - **Archiving.** Once a draft from an inbox file is entered, the file moves to the archive folder, or to Obsidian's trash if none is set. It is never deleted outright.
+
+</details>
+
+<details>
+<summary><b>Limits</b></summary>
+
+- An expense ledger: income and account balances are not modelled.
+- Moving a transaction to another month is blocked for now.
+- Category names in the AI prompt are Chinese by default; you can rename categories freely afterwards.
+
+</details>
+
+<details>
+<summary><b>Development and changelog</b></summary>
 
 ```bash
 npm install
@@ -114,14 +167,6 @@ npm run lint
 ```
 
 `styles.css` is generated: edit `styles/plugin.css` and run `npm run styles`. For CI, releases and reporting issues, see [CONTRIBUTING.md](CONTRIBUTING.md).
-
-## Known limits
-
-- An expense ledger: income and account balances are not modelled.
-- Moving a transaction to another month is blocked for now.
-- Category names in the AI prompt are Chinese by default; you can rename categories freely afterwards.
-
-## Changelog
 
 **0.8.0:** a *Ledger* view for Bases; bank and payment app statements (CSV) imported with categories filed from your own ledger first and suggested by AI for the rest, reviewed before anything is written; monthly ledgers named `账本 YYYY-MM` so they no longer clash with monthly notes.
 
@@ -133,12 +178,13 @@ npm run lint
 
 **0.6.0:** one list of AI services with Chinese presets, a model list and a test that names the problem; drafts that survive closing; refunds, transfers and duplicate warnings; progress with Cancel and Retry; sample rows; English and Chinese interface. Full history in [CHANGELOG.md](CHANGELOG.md).
 
-## License
+</details>
 
-MIT
-
----
-
-## 日本語
+<details>
+<summary><b id="日本語">日本語</b></summary>
 
 レシート写真やノートを、多通貨の Markdown 家計簿に変えます。AI が下書きを作り、あなたが確認してから記帳します。下書きは閉じても残り、確定するまで帳簿には入りません。AI サービスは DeepSeek、通義、SiliconFlow、Kimi、智譜、Gemini、OpenAI、ローカルサーバーから選べ、接続テストで原因（キーなし、認証失敗、残高不足、モデルなし、タイムアウト）を表示します。API キーはこの端末の Obsidian シークレット保存にあり、同期されません。通信先は設定した AI サービスと為替レートの `frankfurter.app` だけです。クリップボードは、接続テストの診断情報をコピーするボタンを押したときに書き込むだけで、読み取りはしません。プラグインは無料で、AI の利用料は各サービスに直接支払います。
+
+</details>
+
+MIT License
