@@ -840,3 +840,6 @@
 .ai-accounting-bases .aa-bases-bar.is-negative { background: var(--ap-good); }
 .ai-accounting-bases .aa-bases-amount { font: var(--ap-body); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
 .ai-accounting-bases .aa-bases-note { margin-top: var(--ap-s4); padding-inline: var(--ap-s1); font: var(--ap-subhead); color: var(--ap-label-3); }
+
+/* File picker for statement import; never shown */
+.aa-hidden-input { display: none; }

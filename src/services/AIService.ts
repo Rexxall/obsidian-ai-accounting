@@ -1,3 +1,4 @@
+import { readCategoryReply } from './categorize';
 import { AccountingSettings, ApiEndpoint } from '../settings';
 import { AiError, AiTarget, CancelToken, ChatImage, chat, parseJsonArray, presetFor } from '../ai/providers';
 import { tr } from '../i18n';
@@ -21,6 +22,27 @@ export interface ProcessHooks {
 
 /** Category for moving money between your own accounts; it is listed but not counted as spending. */
 export const TRANSFER_CATEGORY = '转账';
+
+/** One row sent for a category: an index to answer by, and nothing that identifies the payer. */
+export interface CategoryQuestion {
+    i: number;
+    text: string;
+    amount: number;
+    currency: string;
+    /** The statement's own category, if it has one. */
+    hint?: string;
+}
+
+const PRIMARY_CATEGORIES = ['餐饮美食', '购物消费', '交通出行', '居家生活', '休闲娱乐', '医疗保健', '金融税务', '其他支出', TRANSFER_CATEGORY];
+
+function categoryPrompt(known: string[]): string {
+    const listed = known.length ? `\nCategories this person already uses (prefer these, same spelling):\n${known.slice(0, 200).join('\n')}` : '';
+    return `Give each bookkeeping row a category "Primary / Secondary".
+Primary is one of [${PRIMARY_CATEGORIES.join(', ')}]; Secondary is specific, inferred from the merchant or item.
+A negative amount is a refund: use the category of what was bought. "hint" is the bank's or app's own category; use it as a clue only.
+Moving money between the person's own accounts (top-ups, withdrawals, card repayments, investments) is "${TRANSFER_CATEGORY} / <what>".${listed}
+Return only a JSON array of {"i": <row i>, "category": "<Primary / Secondary>"}, one per row, without code fences.`;
+}
 
 export class AIService {
     /** Keys live in Obsidian's secret storage; settings only hold the secret names. */
@@ -64,6 +86,40 @@ export class AIService {
             }
         }
         throw last ?? new AiError('network', undefined, '', 'chat');
+    }
+
+    /**
+     * Suggests a category for each row a statement import could not file from the ledger. Only the description,
+     * amount, currency and the statement's own category hint are sent, never dates, accounts or order numbers.
+     * Text-only request; services are tried in order like {@link processInput}.
+     */
+    async suggestCategories(items: CategoryQuestion[], known: string[], hooks: ProcessHooks = {}): Promise<Map<number, string>> {
+        const candidates = this.services(false);
+        if (candidates.length === 0) throw new AiError('no-key', undefined, 'no-service', 'chat');
+        const result = new Map<number, string>();
+        for (let start = 0; start < items.length; start += 80) {
+            const batch = items.slice(start, start + 80);
+            const asked = new Set(batch.map(item => item.i));
+            const prompt = `${categoryPrompt(known)}\n\nRows:\n${JSON.stringify(batch)}`;
+            let last: AiError | undefined;
+            let done = false;
+            for (const [index, ep] of candidates.entries()) {
+                if (hooks.token?.cancelled) throw new AiError('cancelled', undefined, '', 'chat');
+                hooks.onAttempt?.(ep.name || presetFor(ep.provider).name, index + 1, candidates.length);
+                try {
+                    const reply = await chat(this.target(ep), { prompt, images: [], json: true }, 90000, hooks.token);
+                    for (const [i, category] of readCategoryReply(parseJsonArray(reply), asked)) result.set(i, category);
+                    done = true;
+                    break;
+                } catch (error) {
+                    last = error instanceof AiError ? error : new AiError('bad-reply', undefined, '', 'chat');
+                    if (last.kind === 'cancelled') throw last;
+                    console.warn(`AI Accounting: service ${index + 1} failed (${last.kind}${last.status ? ` ${last.status}` : ''}).`);
+                }
+            }
+            if (!done) throw last ?? new AiError('network', undefined, '', 'chat');
+        }
+        return result;
     }
 
     /** AI output is untrusted: only accept plain text or numbers for text fields. */

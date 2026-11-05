@@ -13,6 +13,8 @@ export interface ReviewSource {
 export interface ReviewOptions {
     /** Row index → description of the ledger row it may repeat. */
     duplicates?: Map<number, string>;
+    /** Row index → category an AI service suggested; marked until the category is changed. */
+    suggested?: Map<number, string>;
     /** Offered for saved drafts: throw the draft away. */
     onDiscard?: () => Promise<void>;
     /** Saved drafts keep their edits when the dialog closes without entering. */
@@ -107,6 +109,7 @@ export class ReviewImportModal extends Modal {
 
         this.draft.forEach((row, index) => {
             const duplicateOf = this.options.duplicates?.get(index);
+            const suggestedCategory = this.options.suggested?.get(index);
             const item = list.createDiv({ cls: 'ap-disclosure aa-review-item' });
             const head = item.createDiv({ cls: 'ap-disclosure-head aa-review-line', attr: { role: 'button', tabindex: '0' } });
             const chevron = head.createSpan({ cls: 'ap-disclosure-chevron' });
@@ -194,7 +197,8 @@ export class ReviewImportModal extends Modal {
                 meta.empty();
                 if (row.removed) meta.createSpan({ cls: 'ap-pill', text: tr('Left out', '不入账') });
                 if (kind !== 'expense') meta.createSpan({ cls: 'ap-pill is-accent', text: KINDS().find(k => k.kind === kind)?.label ?? '' });
-                if (row.category) meta.createSpan({ cls: 'ap-pill', text: row.category });
+                if (row.category && row.category === suggestedCategory) meta.createSpan({ cls: 'ap-pill is-accent', text: tr(`AI · ${row.category}`, `AI 建议 · ${row.category}`), attr: { title: tr('Suggested by the AI service. Check it before entering.', 'AI 建议的分类，入账前看一眼。') } });
+                else if (row.category) meta.createSpan({ cls: 'ap-pill', text: row.category });
                 meta.createSpan({ cls: 'ap-num', text: [row.date, row.paymentMethod].filter(Boolean).join(' · ') });
                 if (duplicateOf !== undefined && !row.removed) meta.createSpan({ cls: 'ap-pill is-warn', text: tr(`Maybe already entered: ${duplicateOf}`, `可能已记过：${duplicateOf}`) });
                 if (missing.length && !row.removed) meta.createSpan({ cls: 'ap-pill is-warn', text: tr(`Needs: ${missing.map(field => field.label).join(', ')}`, `需补：${missing.map(field => field.label).join('、')}`) });

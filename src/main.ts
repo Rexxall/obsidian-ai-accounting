@@ -10,7 +10,7 @@ import { ReviewImportModal } from "./modals/ReviewImportModal";
 import { migrateSettings } from './services/migrate';
 import { recurringDrafts } from "./services/planning";
 import { TransactionRecord } from "./services/DataService";
-import { TransactionData, failureMessage } from "./services/AIService";
+import { CategoryQuestion, TRANSFER_CATEGORY, TransactionData, failureMessage } from "./services/AIService";
 import { ReviewSource } from "./modals/ReviewImportModal";
 import { IMAGE_TYPES, MAX_NOTE_IMAGES, embeddedImageLinks } from "./services/embeds";
 import { defaultLedgerNames, monthOf, monthPath, rewriteLinkTargets } from "./services/ledgerFiles";
@@ -19,6 +19,8 @@ import { PendingDraft } from "./settings";
 import { TaskProgress } from "./ai/progress";
 import { AiError } from "./ai/providers";
 import { isZh, tr } from "./i18n";
+import { decodeStatement, readStatement } from "./services/statement";
+import { Origin, fromHistory, learn } from "./services/categorize";
 import { registerBasesViewWhenReady } from "./basesSupport";
 import { LEDGER_VIEW_ID, ledgerViewRegistration } from "./LedgerBasesView";
 
@@ -105,11 +107,7 @@ export default class AccountingPlugin extends Plugin {
 					return;
 				}
 
-				const files = folder.children.filter(f =>
-					f instanceof TFile &&
-					f.extension === 'md' &&
-					/^\d{4}-\d{2}$/.test(f.basename)
-				) as TFile[];
+				const files = folder.children.filter((f): f is TFile => f instanceof TFile && f.extension === 'md' && this.dataService.ledgerMonth(f) !== null);
 
 				new Notice(tr(`Updating charts in ${files.length} monthly reports…`, `正在更新 ${files.length} 份月报的图表…`));
 
@@ -126,6 +124,20 @@ export default class AccountingPlugin extends Plugin {
 			name: tr('Rename monthly ledgers so they do not clash with monthly notes', '给月账本改名，不再和月记同名'),
 			callback: () => void this.renameBareLedgers()
 		});
+
+		this.addCommand({
+			id: 'import-statement',
+			name: tr('Import a bank or payment app statement (CSV)', '导入银行或支付软件账单（CSV）'),
+			callback: () => this.pickStatement()
+		});
+
+		this.registerEvent(this.app.workspace.on('file-menu', (menu, file) => {
+			if (!(file instanceof TFile) || !['csv', 'tsv', 'txt'].includes(file.extension.toLowerCase())) return;
+			menu.addItem(item => item
+				.setTitle(tr('Accounting: import this statement', '记账：导入这份账单'))
+				.setIcon('coins')
+				.onClick(async () => this.importStatement(file.name, await this.app.vault.readBinary(file))));
+		}));
 
 		this.addCommand({
 			id: 'add-recurring-expenses',
@@ -384,6 +396,92 @@ export default class AccountingPlugin extends Plugin {
 		}
 		if (notify && files.length > MAX_NOTE_IMAGES) new Notice(tr(`${note.name} embeds ${files.length} images; the first ${MAX_NOTE_IMAGES} are read.`, `${note.name} 里有 ${files.length} 张图片，只读前 ${MAX_NOTE_IMAGES} 张。`));
 		return files.slice(0, MAX_NOTE_IMAGES);
+	}
+
+	/** Asks for a statement file from outside the vault; a CSV inside the vault is imported from its file menu. */
+	private pickStatement() {
+		const input = activeDocument.body.createEl('input', { attr: { type: 'file', accept: '.csv,.tsv,.txt,text/csv' }, cls: 'aa-hidden-input' });
+		input.addEventListener('change', () => {
+			const file = input.files?.[0];
+			input.remove();
+			if (file) void file.arrayBuffer().then(bytes => this.importStatement(file.name, bytes));
+		});
+		input.click();
+	}
+
+	/**
+	 * Reads a statement on this device, files each row by how the same shop was filed before, asks the AI service only
+	 * about the rows left over, and opens the review. Nothing is written until the review is confirmed.
+	 */
+	async importStatement(name: string, bytes: ArrayBuffer) {
+		const statement = readStatement(decodeStatement(bytes), this.settings.defaultInputCurrency);
+		if (!statement.rows.length) {
+			new Notice(statement.income
+				? tr(`${name} has only income (${statement.income} rows); the ledger records spending.`, `${name} 里只有收入（${statement.income} 笔），账本只记支出。`)
+				: tr(`No transactions found in ${name}. Export the statement as CSV with a date and an amount column.`, `${name} 里没找到交易。请导出带日期和金额两列的 CSV 账单。`), 8000);
+			return;
+		}
+
+		const history = (await this.dataService.getAllData()).flatMap(month => month.transactions.map(tx => ({ description: tx.description, category: tx.category })));
+		const memory = learn(history);
+		const origins: Origin[] = [];
+		const rows: TransactionData[] = statement.rows.map((row, index) => {
+			const known = row.hint === TRANSFER_CATEGORY ? `${TRANSFER_CATEGORY} / ${tr('Own accounts', '自己账户之间')}` : fromHistory(row.description, memory);
+			origins[index] = known ? 'history' : 'none';
+			return { date: row.date, description: row.description, category: known ?? '', amount: row.amount, currency: row.currency, paymentMethod: row.paymentMethod };
+		});
+
+		const questions: CategoryQuestion[] = statement.rows.flatMap((row, i) => origins[i] === 'none' ? [{ i, text: row.description, amount: row.amount, currency: row.currency, ...(row.hint ? { hint: row.hint } : {}) }] : []);
+		let aiNote = '';
+		if (questions.length && this.aiService.services(false).length) {
+			const progress = new TaskProgress(tr(`Filing ${questions.length} rows from ${name}`, `给 ${name} 的 ${questions.length} 笔分类`), 'aa');
+			progress.step(tr('Asking for categories…', '请 AI 建议分类…'), 1, 2);
+			try {
+				const suggested = await this.aiService.suggestCategories(questions, memory.categories, {
+					token: progress.token,
+					onAttempt: service => progress.step(tr(`Waiting for ${service}…`, `等待 ${service} 回复…`), 2, 2)
+				});
+				for (const [i, category] of suggested) {
+					const row = rows[i];
+					if (row && !row.category) { row.category = category; origins[i] = 'ai'; }
+				}
+				progress.close();
+			} catch (error) {
+				if (progress.cancelled || (error instanceof AiError && error.kind === 'cancelled')) aiNote = tr('AI suggestions were cancelled.', '已取消 AI 建议。');
+				else { progress.close(); aiNote = `${tr('No AI suggestions:', '没拿到 AI 建议：')} ${failureMessage(error)}`; }
+			}
+		} else if (questions.length) {
+			aiNote = tr('No AI service is set up, so the rest are left for you.', '没设置 AI 服务，剩下的留给你选。');
+		}
+
+		const count = (origin: Origin) => origins.filter(o => o === origin).length;
+		const sourceName = { alipay: tr('Alipay', '支付宝'), wechat: tr('WeChat Pay', '微信支付'), bank: tr('Bank', '银行'), card: tr('Card', '信用卡'), generic: 'CSV' }[statement.source];
+		const summary = [
+			tr(`${sourceName} statement · ${rows.length} to enter`, `${sourceName}账单 · ${rows.length} 笔待入账`),
+			...(count('history') ? [tr(`Filed as before in your ledger: ${count('history')}`, `按你以前的记账分类：${count('history')} 笔`)] : []),
+			...(count('ai') ? [tr(`Suggested by AI, marked below: ${count('ai')}`, `AI 建议（下面有标记）：${count('ai')} 笔`)] : []),
+			...(count('none') ? [tr(`For you to choose: ${count('none')}`, `等你选：${count('none')} 笔`)] : []),
+			...(statement.income ? [tr(`Income left out: ${statement.income}`, `收入未导入：${statement.income} 笔`)] : []),
+			...(statement.skipped ? [tr(`Closed, failed or unreadable rows left out: ${statement.skipped}`, `关闭、失败或读不出的：${statement.skipped} 笔`)] : []),
+			...(aiNote ? ['', aiNote] : [])
+		].join('\n');
+
+		const userId = this.settings.currentUser || this.settings.users[0]?.id || 'default';
+		const userName = this.settings.users.find(u => u.id === userId)?.name || '';
+		const suggested = new Map(rows.flatMap((row, i) => origins[i] === 'ai' ? [[i, row.category] as [number, string]] : []));
+		const reviewed = await new ReviewImportModal(this.app, rows, userName, name, { text: summary }, tr('Statement draft', '账单草稿'), {
+			duplicates: await this.findDuplicates(rows),
+			suggested
+		}).review();
+		if (!reviewed?.length) return;
+		try {
+			if (!(await this.saveTransactions(reviewed, userId, row => `csv-${statementRowId(row)}`))) return;
+		} catch (error) {
+			new Notice((error as Error).message, 7000);
+			return;
+		}
+		new Notice(tr(`Entered ${reviewed.length} transaction(s) from ${name}.`, `已从 ${name} 入账 ${reviewed.length} 笔。`));
+		this.refreshDashboards();
 	}
 
 	/** Sends the input to the AI with a progress notice. Null when cancelled or failed (the notice offers Retry). */
@@ -763,4 +861,11 @@ export default class AccountingPlugin extends Plugin {
 		// Refresh AI Service with new settings
 		this.aiService = new AIService(this.settings, name => this.secret(name));
 	}
+}
+
+/** A short stable id for an imported row, so the same statement line gets the same id. */
+function statementRowId(row: TransactionData): string {
+	let hash = 2166136261;
+	for (const ch of `${row.date}|${row.description}|${row.amount}|${row.currency}`) hash = Math.imul(hash ^ ch.charCodeAt(0), 16777619) >>> 0;
+	return hash.toString(36);
 }
