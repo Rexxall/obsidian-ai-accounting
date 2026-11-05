@@ -824,3 +824,19 @@
 .aa-review-modal button.aa-quiet-danger { color: var(--text-error); }
 
 .aa-rename-list { margin: var(--ap-s2) 0; padding-left: var(--ap-s5); max-height: 40vh; overflow: auto; font-size: var(--font-ui-small); color: var(--ap-label-2); }
+
+/* Ledger view in Bases: totals, then one bar per note */
+.ai-accounting-bases.ap { padding: var(--ap-s3) var(--ap-s4) var(--ap-s5); }
+.ai-accounting-bases .aa-bases-stats { padding-block: var(--ap-s3); }
+.ai-accounting-bases .aa-bases-section { margin-block: var(--ap-s5) 0; }
+.ai-accounting-bases .aa-bases-group-head { display: flex; justify-content: space-between; gap: var(--ap-s3); padding-inline: var(--ap-s1); }
+.ai-accounting-bases .aa-bases-subtotal { font-variant-numeric: tabular-nums; color: var(--ap-label-2); }
+.ai-accounting-bases .aa-bases-row { display: grid; grid-template-columns: minmax(6em, 1fr) minmax(60px, 2fr) var(--aa-amount-width, 12ch); color: inherit; text-decoration: none; }
+.ai-accounting-bases .aa-bases-row:hover { background: var(--ap-fill); }
+.ai-accounting-bases .aa-bases-row:focus-visible { outline: 2px solid var(--ap-accent); outline-offset: -2px; }
+.ai-accounting-bases .aa-bases-label { font: var(--ap-body); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ai-accounting-bases .aa-bases-track { height: 8px; border-radius: var(--ap-r-pill); background: var(--ap-fill); overflow: hidden; }
+.ai-accounting-bases .aa-bases-bar { height: 100%; width: var(--aa-share, 0%); border-radius: inherit; background: var(--ap-accent); }
+.ai-accounting-bases .aa-bases-bar.is-negative { background: var(--ap-good); }
+.ai-accounting-bases .aa-bases-amount { font: var(--ap-body); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.ai-accounting-bases .aa-bases-note { margin-top: var(--ap-s4); padding-inline: var(--ap-s1); font: var(--ap-subhead); color: var(--ap-label-3); }

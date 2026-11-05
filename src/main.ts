@@ -19,6 +19,8 @@ import { PendingDraft } from "./settings";
 import { TaskProgress } from "./ai/progress";
 import { AiError } from "./ai/providers";
 import { isZh, tr } from "./i18n";
+import { registerBasesViewWhenReady } from "./basesSupport";
+import { LEDGER_VIEW_ID, ledgerViewRegistration } from "./LedgerBasesView";
 
 async function sha256(text: string): Promise<string> {
 	return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))), byte => byte.toString(16).padStart(2, '0')).join('');
@@ -45,6 +47,7 @@ export default class AccountingPlugin extends Plugin {
 			VIEW_TYPE_DASHBOARD,
 			(leaf) => new DashboardView(leaf, this)
 		);
+		registerBasesViewWhenReady(this, LEDGER_VIEW_ID, () => ledgerViewRegistration(this));
 
 		// Magic Folder(s) Listener. Obsidian also fires 'create' for every existing file while the vault
 		// loads, so listen only after layout is ready; leftover inbox files are handled by "Scan Magic Inbox Now".

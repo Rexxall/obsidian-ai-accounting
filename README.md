@@ -70,6 +70,7 @@ The plugin makes no other network requests.
 
 - Ledger grouped by day, search and filters, edit and delete (delete asks twice), rename a category across the ledger, CSV export, optional copy to daily notes. In a narrow pane or on a phone, tap a row to edit it.
 - **Monthly budgets** per category, with bars on the ledger page: orange from 80%, red when over.
+- **Ledger view for Bases.** In a base of monthly ledgers (or any notes with an amount), switch the view to *Ledger*: the total, the average and one bar per note in your report currency, with a subtotal for each group when the base is grouped, for example by member folder. Monthly ledgers are picked up by their `total_expense`. With Bases turned off nothing changes.
 - **Recurring expenses** such as rent: set once, add each month through the review dialog, never twice in one month.
 
 ## AI services

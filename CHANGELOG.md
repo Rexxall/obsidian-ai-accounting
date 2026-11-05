@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Ledger view for Bases.** A base can show its notes as a ledger: total, average and count, then one bar per note in the report currency, with a subtotal per group when the base is grouped. Monthly ledgers are read by their `total_expense`; for other notes, pick the amount property or the first one holding numbers is used. Registered only where Bases exists and is on; when Bases is turned on later, the view appears within a few seconds.
 - **Monthly ledgers no longer share a name with monthly notes.** New ledgers are `账本 2026-01.md` (`Ledger 2026-01.md` with an English interface) and source archives `账本原文 2026-01.md`, so `[[2026-01]]` keeps pointing at the monthly note. Ledgers named `2026-01.md` are still read and written; the command *Rename monthly ledgers so they do not clash with monthly notes* renames them after showing the list and points links that name the folder at the new files; a bare `[[2026-01]]` is left to the monthly note.
 - The saved exchange rates are read the first time a rate is needed instead of while Obsidian starts.
 
