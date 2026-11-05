@@ -123,6 +123,8 @@ npm run lint
 
 ## Changelog
 
+**0.8.0:** a *Ledger* view for Bases; bank and payment app statements (CSV) imported with categories filed from your own ledger first and suggested by AI for the rest, reviewed before anything is written; monthly ledgers named `账本 YYYY-MM` so they no longer clash with monthly notes.
+
 **0.7.2:** receipt images embedded in a note (`![[…]]` or `![](…)`, up to six) are sent with its text to services that read images.
 
 **0.7.1:** when no exchange rate can be fetched, you type it in instead of the entry failing; settings say only what is sent where. 

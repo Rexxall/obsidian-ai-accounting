@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.8.0
 
 - **Import statements with suggested categories.** A command (and the file menu of a CSV in the vault) reads Alipay, WeChat Pay, Japanese bank and card, and plain Date / Description / Amount CSV files on this device, in UTF-8, GB18030 or Shift_JIS. Income rows, closed and failed payments are left out; refunds become negative rows and moves between your own accounts go to *Transfer*. A row is first filed as the same description was filed before in your ledger; only the remaining rows go to the enabled AI services, with just their description, amount, currency and the statement's own category. The review shows how many came from each, marks AI-suggested categories, flags rows that may already be entered, and writes nothing until confirmed.
 - *Regenerate charts in all monthly reports* also finds ledgers named `账本 YYYY-MM`.
