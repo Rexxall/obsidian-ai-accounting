@@ -335,7 +335,9 @@
 
 /* Ledger view in Bases: totals, then one bar per note */
 .ai-accounting-bases.ap { padding: var(--ap-s3) var(--ap-s4) var(--ap-s5); }
-.ai-accounting-bases .aa-bases-stats { padding-block: var(--ap-s3); }
+.ai-accounting-bases .aa-bases-summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--ap-s1) var(--ap-s4); padding-inline: var(--ap-s1); }
+.ai-accounting-bases .aa-bases-total { font: 600 26px/32px var(--ap-font-round); letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+.ai-accounting-bases .aa-bases-facts { font: var(--ap-body); color: var(--ap-label-2); font-variant-numeric: tabular-nums; }
 .ai-accounting-bases .aa-bases-section { margin-block: var(--ap-s5) 0; }
 .ai-accounting-bases .aa-bases-group-head { display: flex; justify-content: space-between; gap: var(--ap-s3); padding-inline: var(--ap-s1); }
 .ai-accounting-bases .aa-bases-subtotal { font-variant-numeric: tabular-nums; color: var(--ap-label-2); }
@@ -347,7 +349,8 @@
 .ai-accounting-bases .aa-bases-bar { height: 100%; width: var(--aa-share, 0%); border-radius: inherit; background: var(--ap-accent); }
 .ai-accounting-bases .aa-bases-bar.is-negative { background: var(--ap-good); }
 .ai-accounting-bases .aa-bases-amount { font: var(--ap-body); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
-.ai-accounting-bases .aa-bases-note { margin-top: var(--ap-s4); padding-inline: var(--ap-s1); font: var(--ap-subhead); color: var(--ap-label-3); }
+.ai-accounting-bases .aa-bases-note { margin-top: var(--ap-s4); padding-inline: var(--ap-s1); font: var(--ap-subhead); color: var(--ap-label-2); }
 
 /* File picker for statement import; never shown */
 .aa-hidden-input { display: none; }
+.ai-accounting-bases .aa-bases-row:active { background: var(--ap-fill-strong); }

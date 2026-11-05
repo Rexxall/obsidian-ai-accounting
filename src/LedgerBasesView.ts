@@ -78,15 +78,9 @@ export function ledgerViewRegistration(plugin: LedgerPlugin): BasesViewRegistrat
             // One amount column for every group, so the bars line up across them.
             const widest = Math.max(...amounts.map(amount => this.money(amount).length));
             this.root.setCssProps({ '--aa-amount-width': `${widest + 1}ch` });
-            const stats = this.root.createDiv({ cls: 'ap-group ap-stats aa-bases-stats' });
-            const stat = (label: string, value: string) => {
-                const el = stats.createDiv({ cls: 'ap-stat' });
-                el.createDiv({ cls: 'ap-stat-label', text: label });
-                el.createDiv({ cls: 'ap-stat-value', text: value });
-            };
-            stat(tr('Total', '合计'), this.money(all.total));
-            stat(tr('Average', '平均'), this.money(all.average));
-            stat(tr('Notes', '篇数'), String(all.count));
+            const summary = this.root.createDiv({ cls: 'aa-bases-summary' });
+            summary.createDiv({ cls: 'aa-bases-total', text: this.money(all.total), attr: { 'aria-label': tr(`Total ${this.money(all.total)}`, `合计 ${this.money(all.total)}`) } });
+            summary.createDiv({ cls: 'aa-bases-facts', text: tr(`${all.count} notes · ${this.money(all.average)} on average`, `${all.count} 篇 · 平均 ${this.money(all.average)}`) });
 
             for (const group of groups) {
                 if (!group.rows.length) continue;
