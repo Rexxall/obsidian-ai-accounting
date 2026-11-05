@@ -330,3 +330,5 @@
 .ai-accounting-dashboard-container .aa-demo-banner > .ap-grow { flex: 1 1 auto; min-width: 0; }
 /* Destructive but secondary: red text, no red fill. */
 .aa-review-modal button.aa-quiet-danger { color: var(--text-error); }
+
+.aa-rename-list { margin: var(--ap-s2) 0; padding-left: var(--ap-s5); max-height: 40vh; overflow: auto; font-size: var(--font-ui-small); color: var(--ap-label-2); }

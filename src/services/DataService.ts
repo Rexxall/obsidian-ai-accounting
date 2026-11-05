@@ -2,6 +2,7 @@ import { tableCells, recordId, renderTransaction, locateTransaction, validateTra
 import { App, TFile, TFolder, Notice } from 'obsidian';
 import { tr } from '../i18n';
 import { AccountingSettings } from '../settings';
+import { defaultLedgerNames, monthOf, monthPath } from './ledgerFiles';
 
 export interface TransactionRecord {
     id?: string;
@@ -35,6 +36,20 @@ export class DataService {
 
     constructor(private app: App, private settings: AccountingSettings) { }
 
+    private get ledgerPrefix(): string {
+        return (this.settings.ledgerNames ?? defaultLedgerNames(false)).ledger;
+    }
+
+    /** The month a ledger file covers, or null when the file is not a monthly ledger. */
+    ledgerMonth(file: TFile): string | null {
+        return file.extension === 'md' ? monthOf(file.basename, this.ledgerPrefix) : null;
+    }
+
+    /** The ledger of a month in a folder: the existing file (new or old name) or the path to create. */
+    ledgerPath(folderPath: string, yearMonth: string): string {
+        return monthPath(folderPath, yearMonth, this.ledgerPrefix, path => this.app.vault.getAbstractFileByPath(path) instanceof TFile);
+    }
+
     async getAllData(): Promise<MonthlyStats[]> {
         const stats: MonthlyStats[] = [];
 
@@ -54,8 +69,8 @@ export class DataService {
             const folder = this.app.vault.getAbstractFileByPath(task.folderPath);
             if (!(folder instanceof TFolder)) continue;
 
-            const files = folder.children.filter(f => f instanceof TFile && f.extension === 'md' && /^\d{4}-\d{2}$/.test(f.basename)) as TFile[];
-            files.sort((a, b) => b.basename.localeCompare(a.basename));
+            const files = folder.children.filter((f): f is TFile => f instanceof TFile && this.ledgerMonth(f) !== null);
+            files.sort((a, b) => (this.ledgerMonth(b) ?? '').localeCompare(this.ledgerMonth(a) ?? ''));
 
             for (const file of files) {
                 const fileStats = await this.parseMonthlyFile(file, task.userId);
@@ -121,7 +136,7 @@ export class DataService {
         }
 
         const content = await this.app.vault.read(file);
-        const month = file.basename;
+        const month = this.ledgerMonth(file) ?? file.basename;
         const transactions: TransactionRecord[] = [];
         const categories: Record<string, number> = {};
         const secondaryCategories: Record<string, Record<string, number>> = {};
@@ -316,7 +331,7 @@ export class DataService {
             // For now, if undefined, use default path (legacy/global)
         }
 
-        const filePath = `${folderPath}/${yearMonth}.md`;
+        const filePath = this.ledgerPath(folderPath, yearMonth);
 
         let file = this.app.vault.getAbstractFileByPath(filePath);
         if (!(file instanceof TFile)) {
@@ -502,7 +517,7 @@ export class DataService {
         }
 
         const yearMonth = originalTx.date.slice(0, 7); // YYYY-MM
-        const filePath = `${folderPath}/${yearMonth}.md`;
+        const filePath = this.ledgerPath(folderPath, yearMonth);
         const file = this.app.vault.getAbstractFileByPath(filePath);
 
         if (!(file instanceof TFile)) {
@@ -627,7 +642,7 @@ export class DataService {
             if (user) folderPath = user.folder;
         }
         const yearMonth = tx.date.slice(0, 7);
-        const filePath = `${folderPath}/${yearMonth}.md`;
+        const filePath = this.ledgerPath(folderPath, yearMonth);
         const file = this.app.vault.getAbstractFileByPath(filePath);
         return (file instanceof TFile) ? file : null;
     }
@@ -658,9 +673,9 @@ export class DataService {
             const folder = this.app.vault.getAbstractFileByPath(task.folderPath);
             if (!(folder instanceof TFolder)) continue;
 
-            const files = folder.children.filter(f => f instanceof TFile && f.extension === 'md' && /^\d{4}-\d{2}$/.test(f.basename)) as TFile[];
+            const files = folder.children.filter((f): f is TFile => f instanceof TFile && this.ledgerMonth(f) !== null);
             files.forEach(f => {
-                if (year && !f.basename.startsWith(year)) return;
+                if (year && !(this.ledgerMonth(f) ?? '').startsWith(year)) return;
                 uniqueFiles.add(f);
             });
         }

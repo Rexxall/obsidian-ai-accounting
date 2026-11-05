@@ -1,5 +1,6 @@
 import { App, Notice, PluginSettingTab, Setting, SettingDefinitionItem, SettingGroupItem } from "obsidian";
 import { RecurringExpense } from "./services/planning";
+import type { LedgerNames } from "./services/ledgerFiles";
 import type { TransactionData } from "./services/AIService";
 import { DEFAULT_PROVIDER, ProviderId, TEST_COST_NOTE, presetFor, presets, listModels, testConnection, describeFailure, AiError } from "./ai/providers";
 import { tr } from "./i18n";
@@ -52,6 +53,8 @@ export interface AccountingSettings {
 	financeFolderPath: string; // Used as default/fallback
 	magicFolderPath: string;
 	archiveFolderPath: string;
+	/** File name prefixes, fixed at first start so a later language change does not split the ledgers. */
+	ledgerNames?: LedgerNames;
 	defaultInputCurrency: string;
 	// Multi-user
 	users: UserProfile[];

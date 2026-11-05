@@ -108,7 +108,8 @@ export class FXService {
         for (const [key, entry] of this.cache) {
             const [f, t, date] = key.split('_');
             if (f !== from || t !== to || !date) continue;
-            if (!best || entry.timestamp > best.timestamp) best = { rate: entry.rate, date: date === 'latest' ? new Date(entry.timestamp).toISOString().slice(0, 10) : date, timestamp: entry.timestamp };
+            // Ties go to the later entry: a rate typed in right after a fetch must win.
+            if (!best || entry.timestamp >= best.timestamp) best = { rate: entry.rate, date: date === 'latest' ? new Date(entry.timestamp).toISOString().slice(0, 10) : date, timestamp: entry.timestamp };
         }
         return best && { rate: best.rate, date: best.date };
     }

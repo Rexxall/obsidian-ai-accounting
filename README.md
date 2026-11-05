@@ -43,7 +43,7 @@
 The plugin makes no other network requests.
 
 - **API keys** live in Obsidian's secret storage on this device. The plugin's settings file keeps only the key's name, so keys are not synced with your vault: on a new device, choose the key again in settings.
-- **Ledgers, drafts and settings** stay in your vault (`Finances/YYYY-MM.md` and the plugin's `data.json`).
+- **Ledgers, drafts and settings** stay in your vault (`Finances/Ledger YYYY-MM.md`, or `账本 YYYY-MM.md` with a Chinese interface, and the plugin's `data.json`). The prefix keeps a ledger from sharing its name with a monthly note.
 - **Inbox folders send right away.** While an inbox folder is set, every image or text file put in it goes to the AI service at once. Leave the folder empty to turn this off.
 - **Several services may see one receipt.** If the first service fails, the next enabled one is tried. Keep only services you trust in the list.
 - **Diagnostics** (the copy button next to **Test**) contain the service, address, model, step and error, but no key and no ledger content.

@@ -1,4 +1,4 @@
-import { Notice, Plugin, TFile, TFolder, TAbstractFile, arrayBufferToBase64, WorkspaceLeaf, normalizePath } from 'obsidian';
+import { Modal, Notice, Plugin, Setting, TFile, getLinkpath, TFolder, TAbstractFile, arrayBufferToBase64, WorkspaceLeaf, normalizePath } from 'obsidian';
 import { DEFAULT_SETTINGS, AccountingSettings, AccountingSettingTab } from "./settings";
 import { FXService } from "./services/FXService";
 import { ManualRateModal, MissingRate } from "./modals/ManualRateModal";
@@ -13,11 +13,12 @@ import { TransactionRecord } from "./services/DataService";
 import { TransactionData, failureMessage } from "./services/AIService";
 import { ReviewSource } from "./modals/ReviewImportModal";
 import { IMAGE_TYPES, MAX_NOTE_IMAGES, embeddedImageLinks } from "./services/embeds";
+import { defaultLedgerNames, monthOf, monthPath, rewriteLinkTargets } from "./services/ledgerFiles";
 import { ChatImage } from "./ai/providers";
 import { PendingDraft } from "./settings";
 import { TaskProgress } from "./ai/progress";
 import { AiError } from "./ai/providers";
-import { tr } from "./i18n";
+import { isZh, tr } from "./i18n";
 
 async function sha256(text: string): Promise<string> {
 	return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))), byte => byte.toString(16).padStart(2, '0')).join('');
@@ -115,6 +116,12 @@ export default class AccountingPlugin extends Plugin {
 
 				new Notice(tr('Charts updated in every monthly report.', '月报图表已全部更新。'));
 			}
+		});
+
+		this.addCommand({
+			id: 'rename-monthly-ledgers',
+			name: tr('Rename monthly ledgers so they do not clash with monthly notes', '给月账本改名，不再和月记同名'),
+			callback: () => void this.renameBareLedgers()
 		});
 
 		this.addCommand({
@@ -466,14 +473,104 @@ export default class AccountingPlugin extends Plugin {
 		return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 	}
 
+	/** Ledgers and source archives still named "YYYY-MM", with the name each would get; ones whose new name is taken are left out. */
+	bareLedgerRenames(): { file: TFile; to: string }[] {
+		const names = this.settings.ledgerNames ?? defaultLedgerNames(isZh());
+		const folders = new Map<string, string>();
+		for (const folder of [this.settings.financeFolderPath, ...this.settings.users.map(user => user.folder)]) if (folder) folders.set(folder, names.ledger);
+		if (this.settings.archiveFolderPath) folders.set(this.settings.archiveFolderPath, names.archive);
+		const plan: { file: TFile; to: string }[] = [];
+		for (const [path, prefix] of folders) {
+			const folder = this.app.vault.getFolderByPath(path);
+			for (const child of folder?.children ?? []) {
+				if (!(child instanceof TFile) || child.extension !== 'md' || monthOf(child.basename, '') === null) continue;
+				const to = `${path}/${prefix}${child.basename}.md`;
+				if (!this.app.vault.getAbstractFileByPath(to)) plan.push({ file: child, to });
+			}
+		}
+		return plan;
+	}
+
+	/**
+	 * Link rewrites a rename plan needs, per note. A link written with a folder (`[[Finances/2026-01]]`) clearly means
+	 * the ledger and follows it. A bare `[[2026-01]]` is left alone while another file of that name remains, such as a
+	 * monthly note: that is the file it should have meant all along.
+	 */
+	linkRewritesFor(plan: { file: TFile; to: string }[]): { rewrites: Map<TFile, Map<string, string>>; kept: number } {
+		const moving = new Map(plan.map(item => [item.file, item.to.slice(item.to.lastIndexOf('/') + 1, -3)]));
+		const staying = (basename: string) => this.app.vault.getMarkdownFiles().some(f => f.basename === basename && !moving.has(f));
+		const rewrites = new Map<TFile, Map<string, string>>();
+		let kept = 0;
+		for (const source of this.app.vault.getMarkdownFiles()) {
+			const cache = this.app.metadataCache.getFileCache(source);
+			for (const ref of [...(cache?.links ?? []), ...(cache?.embeds ?? []), ...(cache?.frontmatterLinks ?? [])]) {
+				const linkpath = getLinkpath(ref.link).replace(/\.md$/i, '');
+				const dest = this.app.metadataCache.getFirstLinkpathDest(linkpath, source.path);
+				const newBase = dest ? moving.get(dest) : undefined;
+				if (!dest || newBase === undefined) continue;
+				const slash = linkpath.lastIndexOf('/');
+				if (slash < 0 && staying(dest.basename)) {
+					kept++;
+					continue;
+				}
+				const map = rewrites.get(source) ?? new Map<string, string>();
+				map.set(linkpath, `${linkpath.slice(0, slash + 1)}${newBase}`);
+				rewrites.set(source, map);
+			}
+		}
+		return { rewrites, kept };
+	}
+
+	/** Renames old "YYYY-MM" ledgers after a confirmation and points the links that meant them at the new names. */
+	async renameBareLedgers() {
+		const plan = this.bareLedgerRenames();
+		if (plan.length === 0) {
+			new Notice(tr('Every monthly ledger already has its new name.', '月账本都已经是新文件名。'));
+			return;
+		}
+		const { rewrites, kept } = this.linkRewritesFor(plan);
+		const linkCount = [...rewrites.values()].reduce((sum, map) => sum + map.size, 0);
+		const confirmed = await new Promise<boolean>(resolve => {
+			const modal = new Modal(this.app);
+			let done = false;
+			modal.modalEl.addClass('aa-modal', 'ap', 'ap-modal');
+			modal.setTitle(tr(`Rename ${plan.length} files`, `改名 ${plan.length} 个文件`));
+			if (linkCount > 0) modal.contentEl.createEl('p', { cls: 'ap-sub', text: tr(`${linkCount} links in ${rewrites.size} notes follow the new names.`, `${rewrites.size} 篇笔记里的 ${linkCount} 处链接跟着改。`) });
+			if (kept > 0) modal.contentEl.createEl('p', { cls: 'ap-sub', text: tr(`${kept} links written like [[${plan[0]?.file.basename ?? ''}]] stay with the other note of that name, such as a monthly note.`, `${kept} 处只写 [[${plan[0]?.file.basename ?? ''}]] 的链接不改，留给同名的另一篇笔记（如月记）。`) });
+			const list = modal.contentEl.createEl('ul', { cls: 'aa-rename-list' });
+			for (const { file, to } of plan.slice(0, 12)) list.createEl('li', { text: `${file.path} → ${to.split('/').pop() ?? to}` });
+			if (plan.length > 12) list.createEl('li', { text: tr(`and ${plan.length - 12} more`, `还有 ${plan.length - 12} 个`) });
+			new Setting(modal.contentEl)
+				.addButton(btn => btn.setButtonText(tr('Cancel', '取消')).onClick(() => modal.close()))
+				.addButton(btn => btn.setButtonText(tr('Rename', '改名')).setCta().onClick(() => { done = true; modal.close(); }));
+			modal.onClose = () => resolve(done);
+			modal.open();
+		});
+		if (!confirmed) return;
+		let renamed = 0;
+		for (const { file, to } of plan) {
+			try {
+				// vault.rename leaves links alone; the ones that meant the ledger are rewritten below.
+				await this.app.vault.rename(file, to);
+				renamed++;
+			} catch (error) {
+				console.error(`AI Accounting: could not rename ${file.path}.`, error);
+			}
+		}
+		for (const [source, map] of rewrites) await this.app.vault.process(source, text => rewriteLinkTargets(text, map));
+		new Notice(renamed === plan.length ? tr(`Renamed ${renamed} files.`, `已改名 ${renamed} 个文件。`) : tr(`Renamed ${renamed} of ${plan.length} files; see the console for the rest.`, `改名了 ${renamed}／${plan.length} 个文件，其余见控制台。`), 7000);
+		this.refreshDashboards();
+	}
+
 	private async appendContentToArchiveMonthly(months: string[], sourceFile: TFile, rawContent: string) {
 		if (!this.settings.archiveFolderPath) return;
 		const folderPath = this.settings.archiveFolderPath;
 		if (!this.app.vault.getAbstractFileByPath(folderPath)) {
 			await this.app.vault.createFolder(folderPath);
 		}
+		const prefix = (this.settings.ledgerNames ?? defaultLedgerNames(false)).archive;
 		for (const m of months) {
-			const filePath = `${folderPath}/${m}.md`;
+			const filePath = monthPath(folderPath, m, prefix, path => this.app.vault.getAbstractFileByPath(path) instanceof TFile);
 			let target = this.app.vault.getAbstractFileByPath(filePath);
 			if (!(target instanceof TFile)) {
 				target = await this.app.vault.create(filePath, `# ${m} Archive\n`);
@@ -608,7 +705,9 @@ export default class AccountingPlugin extends Plugin {
 		const legacyShape = !!data && 'aiProvider' in data;
 		this.settings = migrateSettings(data, DEFAULT_SETTINGS);
 		const movedKeys = this.moveKeysToSecretStorage();
-		if (imported || movedKeys || legacyShape) await this.saveData(this.settings);
+		const namedLedgers = !this.settings.ledgerNames;
+		this.settings.ledgerNames ??= defaultLedgerNames(isZh());
+		if (imported || movedKeys || legacyShape || namedLedgers) await this.saveData(this.settings);
 		if (imported) {
 			this.app.workspace.onLayoutReady(() => new Notice(tr('AI Accounting: settings were imported from the old plugin. Once they look right, turn off and remove the old one under Community plugins.', '记账：已导入旧版插件的设置。确认无误后，可以在第三方插件里停用并删除旧版。'), 0));
 		}

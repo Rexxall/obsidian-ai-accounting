@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **Monthly ledgers no longer share a name with monthly notes.** New ledgers are `账本 2026-01.md` (`Ledger 2026-01.md` with an English interface) and source archives `账本原文 2026-01.md`, so `[[2026-01]]` keeps pointing at the monthly note. Ledgers named `2026-01.md` are still read and written; the command *Rename monthly ledgers so they do not clash with monthly notes* renames them after showing the list, and Obsidian updates the links.
+
 ## 0.7.2
 
 - **Receipts embedded in a note are read.** Running the command on a note (or dropping one in an inbox folder) used to send only the text, so `![[receipt.png]]` reached the AI as those words and the image never did. Now the images a note embeds (`![[…]]` or `![](…)`, up to six) go with the text to services that read images; with none, the message says to turn on *Reads images* or add such a service. The review shows the first image.
