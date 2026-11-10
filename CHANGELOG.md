@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.8.1
 
 - Archiving a source note appends to the monthly archive instead of rewriting the whole file.
 

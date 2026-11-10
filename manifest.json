@@ -1,10 +1,10 @@
 {
-  "id": "ai-accounting",
-  "name": "AI Accounting",
-  "version": "0.8.0",
-  "description": "Turn receipt photos and notes into a multi-currency Markdown ledger. AI drafts each entry, you check it, then it is saved. Budgets, refunds, transfers, charts and CSV.",
-  "author": "Rexxall",
-  "isDesktopOnly": false,
-  "minAppVersion": "1.13.0",
-  "authorUrl": "https://github.com/Rexxall"
+	"id": "ai-accounting",
+	"name": "AI Accounting",
+	"version": "0.8.1",
+	"description": "Turn receipt photos and notes into a multi-currency Markdown ledger. AI drafts each entry, you check it, then it is saved. Budgets, refunds, transfers, charts and CSV.",
+	"author": "Rexxall",
+	"isDesktopOnly": false,
+	"minAppVersion": "1.13.0",
+	"authorUrl": "https://github.com/Rexxall"
 }
