@@ -677,13 +677,10 @@ export default class AccountingPlugin extends Plugin {
 				target = await this.app.vault.create(filePath, `# ${m} Archive\n`);
 			}
 			if (target instanceof TFile) {
-				let content = await this.app.vault.read(target);
 				const body = this.stripFrontmatter(rawContent).trim();
 				if (body.length === 0) continue;
 				const headingDate = this.getHeadingDate(rawContent, sourceFile);
-				const block = `\n\n## ${headingDate}\n\n${body}\n`;
-				content += block;
-				await this.app.vault.modify(target, content);
+				await this.app.vault.append(target, `\n\n## ${headingDate}\n\n${body}\n`);
 			}
 		}
 	}
