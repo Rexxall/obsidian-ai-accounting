@@ -65,6 +65,8 @@ export interface AccountingSettings {
 	dailyJournalEnabled: boolean;
 	dailyJournalFolderPath: string;
 	dailyJournalFilePattern: string; // e.g. YYYY-MM-DD
+	/** Added to the cssclasses of the ledgers and archive pages the plugin writes. Empty adds none. */
+	noteCssClass: string;
 	// Planning
 	/** One budget per line, "分类 金额", in the report currency. */
 	budgetText: string;
@@ -87,6 +89,7 @@ export const DEFAULT_SETTINGS: AccountingSettings = {
 	dailyJournalEnabled: false,
 	dailyJournalFolderPath: 'Daily',
 	dailyJournalFilePattern: 'YYYY-MM-DD',
+	noteCssClass: '',
 	budgetText: '',
 	recurring: [],
 	drafts: []
@@ -159,6 +162,7 @@ export class AccountingSettingTab extends PluginSettingTab {
 			{ name: tr('Default input currency', '默认输入币种'), desc: tr('Used when an entry does not name a currency.', '录入时没有注明币种，就使用这个默认值。'), control: { type: 'text', key: 'defaultInputCurrency', placeholder: DEFAULT_SETTINGS.defaultInputCurrency } },
 			{ name: tr('Receipt inbox', '票据收件箱'), desc: tr('Images, text and the images a note embeds are sent to your AI service right away, and to the next service if one fails. Leave empty to turn it off.', '放进来的图片、文本和笔记里嵌入的图片会立即发给 AI 服务，一个失败时还会发给下一个。留空即关闭。'), aliases: ['inbox'], control: { type: 'folder', key: 'magicFolderPath', placeholder: DEFAULT_SETTINGS.magicFolderPath } },
 			{ name: tr('Archive folder', '处理后归档文件夹'), desc: tr('Inbox files move here once their draft is entered. Leave empty to move them to the trash.', '草稿入账后，把原文件移入此文件夹。留空则移到回收站。'), control: { type: 'folder', key: 'archiveFolderPath', placeholder: DEFAULT_SETTINGS.archiveFolderPath } },
+			{ name: tr('Note CSS class', '笔记样式类'), desc: tr("Added to the cssclasses of each ledger and archive page so a CSS snippet in your vault can style it; the plugin ships no style for it. Leave empty to add none.", '写进每篇账本和归档页的 cssclasses，让库里的 CSS 片段给它换样子；插件本身不带这个样式。留空就不加。'), aliases: ['css', 'cssclasses'], control: { type: 'text', key: 'noteCssClass', placeholder: tr('For example ledger-note', '例如 ledger-note') } },
 			{
 				type: 'list',
 				heading: tr('AI services', 'AI 服务'),

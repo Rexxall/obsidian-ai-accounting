@@ -23,6 +23,7 @@ import { decodeStatement, readStatement } from "./services/statement";
 import { Origin, fromHistory, learn } from "./services/categorize";
 import { registerBasesViewWhenReady } from "./basesSupport";
 import { LEDGER_VIEW_ID, ledgerViewRegistration } from "./LedgerBasesView";
+import { withCssClass } from "./services/noteClass";
 
 async function sha256(text: string): Promise<string> {
 	return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))), byte => byte.toString(16).padStart(2, '0')).join('');
@@ -681,6 +682,8 @@ export default class AccountingPlugin extends Plugin {
 				if (body.length === 0) continue;
 				const headingDate = this.getHeadingDate(rawContent, sourceFile);
 				await this.app.vault.append(target, `\n\n## ${headingDate}\n\n${body}\n`);
+				const cssClass = this.settings.noteCssClass;
+				if (cssClass) await this.app.fileManager.processFrontMatter(target, (fm: Record<string, unknown>) => withCssClass(fm, cssClass));
 			}
 		}
 	}

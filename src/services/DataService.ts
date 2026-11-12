@@ -3,6 +3,7 @@ import { App, TFile, TFolder, Notice } from 'obsidian';
 import { tr } from '../i18n';
 import { AccountingSettings } from '../settings';
 import { defaultLedgerNames, monthOf, monthPath } from './ledgerFiles';
+import { withCssClass } from './noteClass';
 
 export interface TransactionRecord {
     id?: string;
@@ -262,6 +263,7 @@ export class DataService {
         await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
             fm.total_expense = Number(stats.total.toFixed(2));
             fm.transaction_count = stats.transactions.length;
+            withCssClass(fm, this.settings.noteCssClass);
         });
     }
 
