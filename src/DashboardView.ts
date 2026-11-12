@@ -248,6 +248,7 @@ export class DashboardView extends ItemView {
         }
         this.contentEl.addClass('aa-view-content');
         container.addClass('ap', 'ap-view');
+        container.toggleClass('ap-signed', this.plugin.settings.serifNumbers);
 
         // We generally shouldn't empty container unless we reconstruct everything.
         // But for tab switching or date change, we often do.
@@ -657,6 +658,7 @@ export class DashboardView extends ItemView {
         const renderTotals = (parent: HTMLElement) => {
             const card = parent.createDiv({ cls: 'ap-card aa-totals' });
             const total = this.createMetricCard(card, tr('Spent in period', '期间支出'), this.formatAmount(displayStats.total), this.displayCurrency, 'is-main');
+            total.valEl.addClass('ap-sig-num');
             total.labelEl.id = 'aa-dynamic-total-label';
             total.valEl.id = 'aa-dynamic-total-val';
             const minor = card.createDiv({ cls: 'aa-minor-metrics' });

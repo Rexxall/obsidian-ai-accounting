@@ -354,3 +354,6 @@
 /* File picker for statement import; never shown */
 .aa-hidden-input { display: none; }
 .ai-accounting-bases .aa-bases-row:active { background: var(--ap-fill-strong); }
+
+/* Serif numbers (on by default): the period total, a step up because Didot sets smaller. The face comes from styles/ap-signature.css. */
+.ai-accounting-dashboard-container.ap-signed .aa-metric.is-main .ap-sig-num { font-size: 30px; line-height: 32px; }

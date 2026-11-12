@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- **Serif numbers** (on by default): the total for the period on the dashboard is set in Didot italic, Georgia where Didot is not installed. Turn it off in settings.
+- Settings groups: the rows' rounded ends are marked at most once per frame, and the watcher stops when the settings tab closes.
+
 ## 0.8.1
 
 - Archiving a source note appends to the monthly archive instead of rewriting the whole file.

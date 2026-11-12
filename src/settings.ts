@@ -4,6 +4,7 @@ import type { LedgerNames } from "./services/ledgerFiles";
 import type { TransactionData } from "./services/AIService";
 import { DEFAULT_PROVIDER, ProviderId, TEST_COST_NOTE, presetFor, presets, listModels, testConnection, describeFailure, AiError } from "./ai/providers";
 import { tr } from "./i18n";
+import { watchSettingGroups } from "./settingGroups";
 import AccountingPlugin from "./main";
 
 export interface UserProfile {
@@ -67,6 +68,8 @@ export interface AccountingSettings {
 	dailyJournalFilePattern: string; // e.g. YYYY-MM-DD
 	/** Added to the cssclasses of the ledgers and archive pages the plugin writes. Empty adds none. */
 	noteCssClass: string;
+	/** The period total on the dashboard in Didot italic: the plugin's one signature detail. */
+	serifNumbers: boolean;
 	// Planning
 	/** One budget per line, "分类 金额", in the report currency. */
 	budgetText: string;
@@ -90,6 +93,7 @@ export const DEFAULT_SETTINGS: AccountingSettings = {
 	dailyJournalFolderPath: 'Daily',
 	dailyJournalFilePattern: 'YYYY-MM-DD',
 	noteCssClass: '',
+	serifNumbers: true,
 	budgetText: '',
 	recurring: [],
 	drafts: []
@@ -116,12 +120,6 @@ const text = (value: unknown) => (typeof value === 'string' ? value : typeof val
 
 const KIT_CLS = 'ap ap-settings';
 /** Marks each group's last row so the kit rounds its lower corners where Obsidian lays rows out flat under their headings. */
-function markGroupEnds(el: HTMLElement): void {
-	el.querySelectorAll('.setting-item:not(.setting-item-heading)').forEach(row => {
-		const next = row.nextElementSibling;
-		row.toggleClass('ap-group-end', !!next && (next.matches('.setting-item-heading') || !next.matches('.setting-item')));
-	});
-}
 /** Sub-pages render outside the tab's container, so their groups carry the kit classes themselves. */
 function kitPage<K extends string>(items: SettingDefinitionItem<K>[]): SettingDefinitionItem<K>[] {
 	const out: SettingDefinitionItem<K>[] = [];
@@ -151,10 +149,25 @@ export class AccountingSettingTab extends PluginSettingTab {
 		super(app, plugin);
 		this.plugin = plugin;
 		this.containerEl.addClass('aa-settings', 'ap', 'ap-settings');
-		new MutationObserver(() => markGroupEnds(this.containerEl)).observe(this.containerEl, { childList: true, subtree: true });
+		plugin.register(() => this.hide());
+	}
+
+	private stopGroups: (() => void) | null = null;
+
+	/** Marks group edges while the tab is open; started on every display, stopped on hide and unload. */
+	private watchGroups(): void {
+		if (this.stopGroups) return;
+		this.stopGroups = watchSettingGroups(this.containerEl);
+	}
+
+	hide(): void {
+		this.stopGroups?.();
+		this.stopGroups = null;
+		super.hide();
 	}
 
 	getSettingDefinitions(): SettingDefinitionItem[] {
+		this.watchGroups();
 		const s = this.plugin.settings;
 		const providerOptions = Object.fromEntries(presets().map(p => [p.id, p.name]));
 		return [
@@ -163,6 +176,7 @@ export class AccountingSettingTab extends PluginSettingTab {
 			{ name: tr('Receipt inbox', '票据收件箱'), desc: tr('Images, text and the images a note embeds are sent to your AI service right away, and to the next service if one fails. Leave empty to turn it off.', '放进来的图片、文本和笔记里嵌入的图片会立即发给 AI 服务，一个失败时还会发给下一个。留空即关闭。'), aliases: ['inbox'], control: { type: 'folder', key: 'magicFolderPath', placeholder: DEFAULT_SETTINGS.magicFolderPath } },
 			{ name: tr('Archive folder', '处理后归档文件夹'), desc: tr('Inbox files move here once their draft is entered. Leave empty to move them to the trash.', '草稿入账后，把原文件移入此文件夹。留空则移到回收站。'), control: { type: 'folder', key: 'archiveFolderPath', placeholder: DEFAULT_SETTINGS.archiveFolderPath } },
 			{ name: tr('Note CSS class', '笔记样式类'), desc: tr("Added to the cssclasses of each ledger and archive page so a CSS snippet in your vault can style it; the plugin ships no style for it. Leave empty to add none.", '写进每篇账本和归档页的 cssclasses，让库里的 CSS 片段给它换样子；插件本身不带这个样式。留空就不加。'), aliases: ['css', 'cssclasses'], control: { type: 'text', key: 'noteCssClass', placeholder: tr('For example ledger-note', '例如 ledger-note') } },
+			{ name: tr('Serif numbers', '数字用衬线'), desc: tr('The total for the period in Didot italic; Georgia where Didot is not installed.', '期间支出的合计用 Didot 斜体；没装 Didot 的系统用 Georgia。'), aliases: ['font', 'Didot', '字体', '衬线'], control: { type: 'toggle', key: 'serifNumbers' } },
 			{
 				type: 'list',
 				heading: tr('AI services', 'AI 服务'),
@@ -288,7 +302,7 @@ export class AccountingSettingTab extends PluginSettingTab {
 		}
 		writePath(s, key, next);
 		await this.plugin.saveSettings();
-		if (field === 'budgetText') this.plugin.refreshDashboards();
+		if (field === 'budgetText' || field === 'serifNumbers') this.plugin.refreshDashboards();
 		// Names and summaries show on list entries.
 		if (['provider', 'name', 'description', 'amount', 'day', 'currency', 'enabled', 'model', 'folder', 'endpoint', 'vision', 'apiKeySecret'].includes(field)) this.update();
 	}

@@ -72,6 +72,7 @@
   --ap-ease: cubic-bezier(0.16, 1, 0.3, 1);
   --ap-ease-spring: cubic-bezier(0.34, 1.36, 0.64, 1);
   --ap-ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);
+  --ap-press: 80ms;
   --ap-fast: 120ms;
   --ap-base: 200ms;
   --ap-slow: 340ms;
@@ -135,6 +136,9 @@
 /* ap-group-end: the plugin marks the last row before a heading or any other block, for Obsidian versions that lay rows out flat */
 .ap-settings .setting-item.ap-group-end,
 .ap-settings .setting-item:not(.setting-item-heading):last-child { border-bottom-left-radius: var(--ap-r-group); border-bottom-right-radius: var(--ap-r-group); }
+/* ap-group-first / ap-group-last: marked by settingGroups.ts (rAF-throttled, disconnected when the tab hides) */
+.ap-settings .setting-item.ap-group-first { border-top-left-radius: var(--ap-r-group); border-top-right-radius: var(--ap-r-group); }
+.ap-settings .setting-item.ap-group-last { border-bottom-left-radius: var(--ap-r-group); border-bottom-right-radius: var(--ap-r-group); }
 .ap-settings .setting-item-heading { background: none; padding: var(--ap-s6) var(--ap-s4) var(--ap-s2); min-height: 0; }
 /* Obsidian pads plain rows 20px and list rows 16px; one inset puts every title, chevron, control and separator on the same two edges */
 .ap.ap-settings .setting-item { padding-inline: var(--ap-s4); }
@@ -339,7 +343,7 @@
 }
 /* Reduce motion: no movement, state changes are instant */
 @media (prefers-reduced-motion: reduce) {
-  .ap, .modal.ap-modal { --ap-fast: 0s; --ap-base: 0s; --ap-slow: 0s; }
+  .ap, .modal.ap-modal { --ap-press: 0s; --ap-fast: 0s; --ap-base: 0s; --ap-slow: 0s; }
   /* Repeated classes outrank the plugins' own transitions without !important */
   .ap.ap.ap, .ap.ap.ap *, .modal.ap-modal.ap-modal.ap-modal { animation: none; transition: none; }
 }
