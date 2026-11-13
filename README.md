@@ -1,5 +1,7 @@
 <p align="right"><a href="README.zh.md">中文</a> · <a href="#日本語">日本語</a></p>
 
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/readme/icon-dark.svg"><img src="assets/readme/icon-light.svg" width="96" height="96" alt="AI Accounting icon"></picture></p>
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/readme/hero-dark.svg">
   <img src="assets/readme/hero-light.svg" width="100%" alt="AI Accounting: snap a receipt, check two lines, and it is in your ledger. A convenience store receipt becomes two draft lines, onigiri and green tea, and a notebook and pen, each with a category, waiting to be recorded.">

@@ -1,5 +1,7 @@
 <p align="right"><a href="README.md">English</a></p>
 
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/readme/icon-dark.svg"><img src="assets/readme/icon-light.svg" width="96" height="96" alt="AI Accounting icon"></picture></p>
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/readme/hero-zh-dark.svg">
   <img src="assets/readme/hero-zh-light.svg" width="100%" alt="AI Accounting（AI 记账）：拍一张小票，核对两行，就进了账本。一张便利店小票变成两行草稿：饭团和绿茶、本子和圆珠笔，各带分类，等你确认入账。">
