@@ -1469,7 +1469,10 @@ export class DashboardView extends ItemView {
 
                 saveBtn.onclick = handleAdd;
                 [descInput, catInput, amountInput, payInput].forEach(input => {
-                    input.onkeydown = (e) => { if (e.key === 'Enter') void handleAdd(); };
+                    input.onkeydown = (e) => {
+                        if (e.isComposing || e.keyCode === 229) return;
+                        if (e.key === 'Enter') void handleAdd();
+                    };
                 });
             } else {
                 detailsCard.createDiv({ cls: 'ap-cap', text: tr('No transactions yet', '暂无交易记录') });
@@ -2001,6 +2004,7 @@ export class DashboardView extends ItemView {
         };
 
         input.onkeydown = (e) => {
+            if (e.isComposing || e.keyCode === 229) return;
             if (e.key === 'Enter') {
                 void saveChanges();
             } else if (e.key === 'Escape') {
