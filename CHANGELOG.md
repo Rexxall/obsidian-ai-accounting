@@ -1,13 +1,15 @@
 # Changelog
 
-## Unreleased
+## 0.9.0
 
-- **Compare two points on the trend chart.** Click two bars, or drag across them, and a popover reads the change: from → to, the difference, the percentage and what was spent in between. By day (the viewed month, up to today) or by month (gaps filled, across years). Works with touch, and with the keyboard: arrows move, Enter picks, Shift with an arrow stretches, Esc clears. On narrow panes the popover sits under the chart.
-- **AI services, rebuilt on the shared AI layer.** OpenAI, Anthropic and Gemini come first, then DeepSeek, OpenRouter, Qwen, Kimi, Zhipu, SiliconFlow, Ollama, LM Studio and any OpenAI-compatible server. Keys are picked from Obsidian's Keychain under shared names (`openai-api-key` …), so one key serves every plugin. **Check** lists the models the key can use, shows the balance where the provider offers one, and the model menu puts recommended picks first. New services start on OpenAI `gpt-6-luna`.
-- Claude Code and Codex on this computer can file statement rows; they read text only, so receipt photos go to the next service.
+- **Twelve AI providers built in, one key for every plugin.** OpenAI, Anthropic and Gemini come first, then DeepSeek, OpenRouter, Qwen, Kimi, Zhipu, SiliconFlow, Ollama, LM Studio and any OpenAI-compatible server. Keys are picked from Obsidian's Keychain under shared names (`openai-api-key` …), so a key saved once serves every plugin. **Check** lists the models the key can use and shows the balance where the provider offers one; the model menu puts recommended picks first. New services start on OpenAI `gpt-6-luna`.
+- Claude Code and Codex on this computer can file statement rows. They read text only, so receipt photos go to the next service.
 - Every AI error names the service and the next step: no key, key rejected, out of quota, model missing, timed out, offline.
-- Settings from earlier versions move over on first start: services, order, models and on/off state are kept; old Keychain names keep working, and keys still in plain text move into the Keychain.
-- Enter that confirms an IME candidate is ignored without the deprecated `keyCode` check failing the lint.
+- Your settings move over on first start: services, their order, models and on/off state are kept, old Keychain names keep working, and any key still in plain text moves into the Keychain.
+- **Compare two points on the trend chart.** Click two bars, or drag across them, and read the change: from → to, the difference, the percentage and what was spent in between. By day (the viewed month, up to today) or by month (across years). Works with touch, and with the keyboard: arrows move, Enter picks, Shift with an arrow stretches, Esc clears.
+- Provider names follow the interface language (通义千问, 硅基流动 … in Chinese, Qwen, SiliconFlow … in English).
+- Pressing Enter to confirm a Chinese or Japanese input candidate no longer adds the entry.
+- Segmented controls (Transactions / Charts, By day / By month) show the chosen segment clearly in dark themes, and themes that ring every button no longer make the other segment look chosen.
 - **Serif numbers** (on by default): the total for the period on the dashboard is set in Didot italic, Georgia where Didot is not installed. Turn it off in settings.
 - Settings groups: the rows' rounded ends are marked at most once per frame, and the watcher stops when the settings tab closes.
 
