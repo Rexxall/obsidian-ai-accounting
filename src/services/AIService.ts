@@ -1,7 +1,11 @@
 import { readCategoryReply } from './categorize';
-import { AccountingSettings, ApiEndpoint } from '../settings';
-import { AiError, AiTarget, CancelToken, ChatImage, chat, parseJsonArray, presetFor } from '../ai/providers';
+import type { AccountingSettings, AiService } from '../settings';
+import { AiError, describeAiError, isLocalAgent } from '../ai/kit';
+import type { AiClient, ContentPart } from '../vendor/rex-ai-kit/index';
 import { tr } from '../i18n';
+
+/** An image sent with the prompt: base64 data, without the data: prefix. */
+export interface ChatImage { data: string; mimeType: string }
 
 export interface TransactionData {
     /** Set for rows whose ID is known in advance, such as recurring expenses. */
@@ -15,7 +19,7 @@ export interface TransactionData {
 }
 
 export interface ProcessHooks {
-    token?: CancelToken;
+    signal?: AbortSignal;
     /** Called before each service is tried. */
     onAttempt?: (serviceName: string, index: number, total: number) => void;
 }
@@ -41,20 +45,36 @@ function categoryPrompt(known: string[]): string {
 Primary is one of [${PRIMARY_CATEGORIES.join(', ')}]; Secondary is specific, inferred from the merchant or item.
 A negative amount is a refund: use the category of what was bought. "hint" is the bank's or app's own category; use it as a clue only.
 Moving money between the person's own accounts (top-ups, withdrawals, card repayments, investments) is "${TRANSFER_CATEGORY} / <what>".${listed}
-Return only a JSON array of {"i": <row i>, "category": "<Primary / Secondary>"}, one per row, without code fences.`;
+Return only a JSON object {"rows": [{"i": <row i>, "category": "<Primary / Secondary>"}, …]}, one entry per row, without code fences.`;
 }
 
-export class AIService {
-    /** Keys live in Obsidian's secret storage; settings only hold the secret names. */
-    constructor(private settings: AccountingSettings, private getSecret: (name: string) => string = () => '') { }
+/** Local agents start a program and are slower to answer than an API. */
+const TIMEOUT_MS = 90_000;
+const LOCAL_TIMEOUT_MS = 180_000;
 
-    /** Enabled services in order; for an image, only those that read images. */
-    services(isImage: boolean): ApiEndpoint[] {
-        return this.settings.apiEndpoints.filter(ep => ep.enabled && (!isImage || ep.vision));
+export class AIService {
+    /** Keys live in Obsidian's Keychain; the client reads them when a request is sent. */
+    constructor(private settings: AccountingSettings, private client: AiClient) { }
+
+    /** Enabled services in order; for an image, only those that read images (never a program on this computer). */
+    services(isImage: boolean): AiService[] {
+        return this.settings.aiServices.filter(svc => svc.enabled && (!isImage || (svc.vision && !isLocalAgent(svc.ai.provider))));
     }
 
-    private target(ep: ApiEndpoint): AiTarget {
-        return { provider: ep.provider, baseUrl: ep.endpoint || presetFor(ep.provider).baseUrl, model: ep.model, apiKey: ep.apiKeySecret ? this.getSecret(ep.apiKeySecret) : ep.apiKey };
+    /** The name shown while waiting: the user's own, or the provider's. */
+    label(svc: AiService): string {
+        return svc.name || this.client.provider(svc.ai).name;
+    }
+
+    private async ask(svc: AiService, prompt: string, images: ChatImage[], signal?: AbortSignal): Promise<unknown[]> {
+        const content: ContentPart[] = [{ type: 'text', text: prompt }, ...images.map(image => ({ type: 'image' as const, mime: image.mimeType, data: image.data }))];
+        const reply = await this.client.complete(svc.ai, {
+            messages: [{ role: 'user', content: images.length ? content : prompt }],
+            json: true,
+            signal,
+            timeoutMs: isLocalAgent(svc.ai.provider) ? LOCAL_TIMEOUT_MS : TIMEOUT_MS,
+        });
+        return parseJsonArray(reply.text, this.label(svc));
     }
 
     /**
@@ -66,26 +86,22 @@ export class AIService {
         const isImage = images.length > 0;
         const candidates = this.services(isImage);
         if (candidates.length === 0) {
-            throw new AiError('no-key', undefined, isImage && this.services(false).length > 0 ? 'no-vision' : 'no-service', 'chat');
+            throw new AiError('No AI service', 'no-key', undefined, isImage && this.services(false).length > 0 ? 'no-vision' : 'no-service');
         }
+        const prompt = text.trim() ? `${this.prompt()}\n\nInput${isImage ? ' (the attached images belong to it)' : ''}:\n${text}` : this.prompt();
         let last: AiError | undefined;
-        for (const [index, ep] of candidates.entries()) {
-            if (hooks.token?.cancelled) throw new AiError('cancelled', undefined, '', 'chat');
-            hooks.onAttempt?.(ep.name || presetFor(ep.provider).name, index + 1, candidates.length);
+        for (const [index, svc] of candidates.entries()) {
+            if (hooks.signal?.aborted) throw new AiError('Cancelled', 'aborted');
+            hooks.onAttempt?.(this.label(svc), index + 1, candidates.length);
             try {
-                const reply = await chat(this.target(ep), {
-                    prompt: text.trim() ? `${this.prompt()}\n\nInput${isImage ? ' (the attached images belong to it)' : ''}:\n${text}` : this.prompt(),
-                    images,
-                    json: true
-                }, 90000, hooks.token);
-                return this.normalizeDraft(parseJsonArray(reply));
+                return this.normalizeDraft(await this.ask(svc, prompt, images, hooks.signal));
             } catch (error) {
-                last = error instanceof AiError ? error : new AiError('bad-reply', undefined, '', 'chat');
-                if (last.kind === 'cancelled') throw last;
+                last = asAiError(error);
+                if (last.kind === 'aborted') throw last;
                 console.warn(`AI Accounting: service ${index + 1} failed (${last.kind}${last.status ? ` ${last.status}` : ''}).`);
             }
         }
-        throw last ?? new AiError('network', undefined, '', 'chat');
+        throw last ?? new AiError('No reply', 'network');
     }
 
     /**
@@ -95,7 +111,7 @@ export class AIService {
      */
     async suggestCategories(items: CategoryQuestion[], known: string[], hooks: ProcessHooks = {}): Promise<Map<number, string>> {
         const candidates = this.services(false);
-        if (candidates.length === 0) throw new AiError('no-key', undefined, 'no-service', 'chat');
+        if (candidates.length === 0) throw new AiError('No AI service', 'no-key', undefined, 'no-service');
         const result = new Map<number, string>();
         for (let start = 0; start < items.length; start += 80) {
             const batch = items.slice(start, start + 80);
@@ -103,21 +119,20 @@ export class AIService {
             const prompt = `${categoryPrompt(known)}\n\nRows:\n${JSON.stringify(batch)}`;
             let last: AiError | undefined;
             let done = false;
-            for (const [index, ep] of candidates.entries()) {
-                if (hooks.token?.cancelled) throw new AiError('cancelled', undefined, '', 'chat');
-                hooks.onAttempt?.(ep.name || presetFor(ep.provider).name, index + 1, candidates.length);
+            for (const [index, svc] of candidates.entries()) {
+                if (hooks.signal?.aborted) throw new AiError('Cancelled', 'aborted');
+                hooks.onAttempt?.(this.label(svc), index + 1, candidates.length);
                 try {
-                    const reply = await chat(this.target(ep), { prompt, images: [], json: true }, 90000, hooks.token);
-                    for (const [i, category] of readCategoryReply(parseJsonArray(reply), asked)) result.set(i, category);
+                    for (const [i, category] of readCategoryReply(await this.ask(svc, prompt, [], hooks.signal), asked)) result.set(i, category);
                     done = true;
                     break;
                 } catch (error) {
-                    last = error instanceof AiError ? error : new AiError('bad-reply', undefined, '', 'chat');
-                    if (last.kind === 'cancelled') throw last;
+                    last = asAiError(error);
+                    if (last.kind === 'aborted') throw last;
                     console.warn(`AI Accounting: service ${index + 1} failed (${last.kind}${last.status ? ` ${last.status}` : ''}).`);
                 }
             }
-            if (!done) throw last ?? new AiError('network', undefined, '', 'chat');
+            if (!done) throw last ?? new AiError('No reply', 'network');
         }
         return result;
     }
@@ -144,7 +159,7 @@ export class AIService {
         const today = new Date();
         const iso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
         return `Extract transaction details for bookkeeping. The input may contain several transactions.
-Return a JSON array of objects with these keys:
+Each transaction is an object with these keys:
 - date: YYYY-MM-DD. Use ${iso} if the input has no date.
 - description: keep the full context, with merchant names standardized to their best-known form
   ("全家"/"familymart" → "FamilyMart", "7-11"/"セブンイレブン" → "7-Eleven", "罗森"/"ローソン" → "Lawson",
@@ -155,16 +170,33 @@ Return a JSON array of objects with these keys:
 - amount: a number. Positive for spending. A refund or return is negative, with the category of the original purchase.
 - currency: 3-letter code. Use ${this.settings.defaultInputCurrency} if none is given.
 - paymentMethod: e.g. 现金, 微信零钱, 支付宝, "<Bank>信用卡", "<Bank>借记卡"; "EPOS" → "EPOS信用卡". Use "未分类" if unknown.
-Return only the JSON array, without code fences.`;
+Return only a JSON object {"transactions": [ … ]} holding these objects, without code fences.`;
     }
 }
 
-/** A sentence for a failure, including the cases where no service is set up or none reads images. */
+function asAiError(error: unknown): AiError {
+    return error instanceof AiError ? error : new AiError(error instanceof Error ? error.message : String(error), 'bad-response');
+}
+
+/** Strips code fences and pulls the first JSON array out of a reply, bare or wrapped in an object. */
+export function parseJsonArray(reply: string, provider?: string): unknown[] {
+    const cleaned = reply.replace(/```(?:json)?/g, '').trim();
+    const bad = () => new AiError('Unreadable reply', 'bad-response', undefined, undefined, provider);
+    let parsed: unknown;
+    try { parsed = JSON.parse(cleaned); } catch { throw bad(); }
+    if (Array.isArray(parsed)) return parsed as unknown[];
+    if (parsed && typeof parsed === 'object') {
+        const inner = Object.values(parsed).find((v): v is unknown[] => Array.isArray(v));
+        return inner ?? [parsed];
+    }
+    throw bad();
+}
+
+/** A sentence for a failure, with the next step, including the cases where no service is set up or none reads images. */
 export function failureMessage(error: unknown): string {
     if (error instanceof AiError) {
         if (error.detail === 'no-vision') return tr('None of your AI services reads images. Turn on "Reads images" for one that does, or add one in settings.', '没有能识图的 AI 服务。请在设置里给支持图片的服务打开“能识图”，或添加一个。');
         if (error.detail === 'no-service') return tr('No AI service is set up yet. Add one in settings → AI services.', '还没有设置 AI 服务。请到设置 → AI 服务里添加。');
-        return error.message;
     }
-    return error instanceof Error ? error.message : String(error);
+    return describeAiError(error);
 }

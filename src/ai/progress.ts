@@ -1,14 +1,13 @@
 import { Notice } from 'obsidian';
 import { tr } from '../i18n';
-import { CancelToken } from './providers';
 
 /**
  * A notice that shows which step a slow AI task is on, with Cancel while it runs and
- * Retry when it fails. The service cannot be stopped mid-request; Cancel stops waiting
- * and drops the reply.
+ * Retry when it fails. Cancel stops waiting and drops the reply; a program on this
+ * computer is stopped.
  */
 export class TaskProgress {
-    readonly token: CancelToken = { cancelled: false };
+    private readonly controller = new AbortController();
     private notice: Notice;
     private closed = false;
 
@@ -18,8 +17,13 @@ export class TaskProgress {
         this.notice.messageEl.addClass(`${prefix}-task-notice`);
     }
 
+    /** Aborted when the user presses Cancel; pass it to the request. */
+    get signal(): AbortSignal {
+        return this.controller.signal;
+    }
+
     get cancelled(): boolean {
-        return this.token.cancelled;
+        return this.controller.signal.aborted;
     }
 
     /** `index` counts from 1. */
@@ -36,7 +40,7 @@ export class TaskProgress {
         }
         const actions = frag.createDiv({ cls: `${this.prefix}-task-actions` });
         this.button(actions, tr('Cancel', '取消'), () => {
-            this.token.cancelled = true;
+            this.controller.abort();
             this.close();
             new Notice(tr(`${this.title}: cancelled. Nothing was written.`, `${this.title}：已取消，没有写入任何内容。`));
         });

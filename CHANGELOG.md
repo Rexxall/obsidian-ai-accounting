@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **AI services, rebuilt on the shared AI layer.** OpenAI, Anthropic and Gemini come first, then DeepSeek, OpenRouter, Qwen, Kimi, Zhipu, SiliconFlow, Ollama, LM Studio and any OpenAI-compatible server. Keys are picked from Obsidian's Keychain under shared names (`openai-api-key` …), so one key serves every plugin. **Check** lists the models the key can use, shows the balance where the provider offers one, and the model menu puts recommended picks first. New services start on OpenAI `gpt-6-luna`.
+- Claude Code and Codex on this computer can file statement rows; they read text only, so receipt photos go to the next service.
+- Every AI error names the service and the next step: no key, key rejected, out of quota, model missing, timed out, offline.
+- Settings from earlier versions move over on first start: services, order, models and on/off state are kept; old Keychain names keep working, and keys still in plain text move into the Keychain.
+- Enter that confirms an IME candidate is ignored without the deprecated `keyCode` check failing the lint.
 - **Serif numbers** (on by default): the total for the period on the dashboard is set in Didot italic, Georgia where Didot is not installed. Turn it off in settings.
 - Settings groups: the rows' rounded ends are marked at most once per frame, and the watcher stops when the settings tab closes.
 

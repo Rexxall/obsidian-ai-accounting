@@ -1,8 +1,10 @@
-import { App, Notice, PluginSettingTab, Setting, SettingDefinitionItem, SettingGroupItem } from "obsidian";
+import { App, Notice, PluginSettingTab, Setting, SettingDefinitionItem, SettingGroupItem, SettingPage } from "obsidian";
 import { RecurringExpense } from "./services/planning";
 import type { LedgerNames } from "./services/ledgerFiles";
 import type { TransactionData } from "./services/AIService";
-import { DEFAULT_PROVIDER, ProviderId, TEST_COST_NOTE, presetFor, presets, listModels, testConnection, describeFailure, AiError } from "./ai/providers";
+import { aiLang, isLocalAgent } from "./ai/kit";
+import type { AiSlot, ModelCacheData } from "./vendor/rex-ai-kit/index";
+import { renderAiSettings } from "./vendor/rex-ai-kit/settingsUI";
 import { tr } from "./i18n";
 import { watchSettingGroups } from "./settingGroups";
 import AccountingPlugin from "./main";
@@ -15,20 +17,15 @@ export interface UserProfile {
 	color: string;
 }
 
-/** One AI service. Gemini uses its own API; every other service speaks the OpenAI chat format. */
-export interface ApiEndpoint {
+/** One AI service in the fallback list. The key stays in Obsidian's Keychain; only its name is stored. */
+export interface AiService {
 	id: string;
+	/** Shown in the list and while waiting; empty uses the provider's name. */
 	name: string;
-	provider: ProviderId;
-	endpoint: string;
-	/** Before 0.5.0 the key was stored here; migrated into secret storage on load. */
-	apiKey: string;
-	/** Name of the secret in Obsidian's secret storage. */
-	apiKeySecret?: string;
-	model: string;
 	enabled: boolean;
-	/** Whether the model reads images. Receipts in image form skip services that do not. */
+	/** Whether the model reads images. Receipts in image form skip services that do not; programs on this computer never do. */
 	vision: boolean;
+	ai: AiSlot & { grantExpiry?: string };
 }
 
 /** What the AI read, kept until it is reviewed, so closing the dialog loses nothing. */
@@ -50,7 +47,9 @@ export interface PendingDraft {
 
 export interface AccountingSettings {
 	baseCurrency: string;
-	apiEndpoints: ApiEndpoint[];
+	aiServices: AiService[];
+	/** Model lists fetched by Check or Refresh, so opening the settings needs no request. */
+	modelCache?: ModelCacheData;
 	financeFolderPath: string; // Used as default/fallback
 	magicFolderPath: string;
 	archiveFolderPath: string;
@@ -79,7 +78,7 @@ export interface AccountingSettings {
 
 export const DEFAULT_SETTINGS: AccountingSettings = {
 	baseCurrency: 'CNY',
-	apiEndpoints: [],
+	aiServices: [],
 	financeFolderPath: 'Finances',
 	magicFolderPath: 'Finances/Inbox',
 	archiveFolderPath: 'Finances/Archive',
@@ -99,9 +98,9 @@ export const DEFAULT_SETTINGS: AccountingSettings = {
 	drafts: []
 }
 
-export function newEndpoint(provider: ProviderId = DEFAULT_PROVIDER): ApiEndpoint {
-	const preset = presetFor(provider);
-	return { id: Date.now().toString(36), name: preset.name, provider, endpoint: preset.baseUrl, apiKey: '', model: preset.model, enabled: true, vision: preset.vision };
+/** A new service starts on OpenAI's small model, which reads receipts well for a fraction of a cent. */
+export function newService(): AiService {
+	return { id: Date.now().toString(36), name: '', enabled: true, vision: true, ai: { provider: 'openai', model: 'gpt-6-luna' } };
 }
 
 /** Reads a value by a dotted path such as "recurring.0.amount". */
@@ -142,9 +141,6 @@ function kitPage<K extends string>(items: SettingDefinitionItem<K>[]): SettingDe
 
 export class AccountingSettingTab extends PluginSettingTab {
 	plugin: AccountingPlugin;
-	/** Model lists fetched in this session, by entry id. */
-	private modelLists = new Map<string, string[]>();
-
 	constructor(app: App, plugin: AccountingPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
@@ -169,7 +165,6 @@ export class AccountingSettingTab extends PluginSettingTab {
 	getSettingDefinitions(): SettingDefinitionItem[] {
 		this.watchGroups();
 		const s = this.plugin.settings;
-		const providerOptions = Object.fromEntries(presets().map(p => [p.id, p.name]));
 		return [
 			{ name: tr('Report currency', '报表币种'), desc: tr('Amounts in reports are converted to this currency; budgets use it too.', '报表金额统一换算为这个币种，预算也按它填写。'), control: { type: 'text', key: 'baseCurrency', placeholder: DEFAULT_SETTINGS.baseCurrency } },
 			{ name: tr('Default input currency', '默认输入币种'), desc: tr('Used when an entry does not name a currency.', '录入时没有注明币种，就使用这个默认值。'), control: { type: 'text', key: 'defaultInputCurrency', placeholder: DEFAULT_SETTINGS.defaultInputCurrency } },
@@ -180,31 +175,23 @@ export class AccountingSettingTab extends PluginSettingTab {
 			{
 				type: 'list',
 				heading: tr('AI services', 'AI 服务'),
-				emptyState: tr('No AI service yet. Add one to read receipts and notes; the ledger, charts and manual entry work without it. DeepSeek is the default; Qwen, SiliconFlow, Kimi, Zhipu, Gemini, OpenAI and local models are also available.', '还没有 AI 服务。加一个就能识别票据和笔记；账本、图表和手动记账不需要它。默认 DeepSeek，也可以选通义、硅基流动、Kimi、智谱、Gemini、OpenAI 或本地模型。'),
+				emptyState: tr('No AI service yet. Add one to read receipts and notes; the ledger, charts and manual entry work without it. OpenAI, Anthropic and Gemini come first; DeepSeek, Qwen, Kimi, Zhipu, OpenRouter, SiliconFlow and local models are there too.', '还没有 AI 服务。加一个就能识别票据和笔记；账本、图表和手动记账不需要它。OpenAI、Anthropic、Gemini 排在最前，也有 DeepSeek、通义、Kimi、智谱、OpenRouter、硅基流动和本地模型。'),
 				addItem: { name: tr('Add service', '添加服务'), action: () => {
-					s.apiEndpoints.push(newEndpoint());
+					s.aiServices.push(newService());
 					void this.saveAndUpdate();
 				} },
 				onReorder: (from, to) => {
-					const [moved] = s.apiEndpoints.splice(from, 1);
-					if (moved) s.apiEndpoints.splice(to, 0, moved);
+					const [moved] = s.aiServices.splice(from, 1);
+					if (moved) s.aiServices.splice(to, 0, moved);
 					void this.saveAndUpdate();
 				},
-				onDelete: index => { s.apiEndpoints.splice(index, 1); void this.saveAndUpdate(); },
-				items: s.apiEndpoints.map((ep, i) => ({
+				onDelete: index => { s.aiServices.splice(index, 1); void this.saveAndUpdate(); },
+				items: s.aiServices.map((svc, i) => ({
 					type: 'page' as const,
-					name: `${i + 1}. ${ep.name || presetFor(ep.provider).name}`,
-					desc: !ep.enabled ? tr('Off', '已停用') : [ep.model, ep.vision ? tr('reads images', '能识图') : tr('text only', '只读文字')].filter(Boolean).join(' · '),
-					items: kitPage([
-						{ name: tr('On', '启用'), desc: tr('When one enabled service fails, the same receipt goes to the next.', '启用的服务里一个失败，同一张票据会发给下一个。'), control: { type: 'toggle', key: `apiEndpoints.${i}.enabled` } },
-						{ name: tr('Service', '服务商'), desc: tr('Choosing a service fills in its address and a suggested model.', '选好服务商会自动填上地址和推荐模型。'), control: { type: 'dropdown', key: `apiEndpoints.${i}.provider`, options: providerOptions } },
-						{ name: tr('Address', '接口地址'), desc: tr('Change it only for a proxy, another region or a local server.', '只有用代理、其他地区或本地服务时才需要改。'), control: { type: 'text', key: `apiEndpoints.${i}.endpoint`, placeholder: presetFor(ep.provider).baseUrl } },
-						{ name: tr('Model', '模型'), desc: tr('Type a model name, or fetch the list below.', '直接填模型名，或在下面取模型列表。'), control: { type: 'text', key: `apiEndpoints.${i}.model`, placeholder: presetFor(ep.provider).model } },
-						{ name: tr('Model list', '模型列表'), desc: tr('Asks the service which models this key can use. Free.', '向服务商查询这个密钥能用的模型，不收费。'), render: (setting: Setting) => this.renderModelList(setting, ep, i) },
-						{ name: tr('Reads images', '能识图'), desc: tr('Turn on only if the model accepts pictures. Image receipts skip services that cannot read them.', '模型支持图片时才打开。图片票据会跳过不能识图的服务。'), control: { type: 'toggle', key: `apiEndpoints.${i}.vision` } },
-						{ name: tr('API key', 'API 密钥'), desc: this.keyDesc(ep), control: { type: 'secret', key: `apiEndpoints.${i}.apiKeySecret` } },
-						{ name: tr('Test connection', '测试连接'), desc: TEST_COST_NOTE(), render: (setting: Setting) => this.renderTest(setting, ep) }
-					])
+					name: `${i + 1}. ${this.serviceName(svc)}`,
+					desc: this.serviceSummary(svc),
+					status: () => (svc.enabled && !this.plugin.ai.hasKey(svc.ai) ? 'warning' : null),
+					page: () => new AiServicePage(this, svc)
 				}))
 			},
 			{
@@ -288,23 +275,11 @@ export class AccountingSettingTab extends PluginSettingTab {
 		else if (field === 'amount') next = Math.max(0, Number(value) || 0);
 		else if (field === 'day') next = Math.min(31, Math.max(1, Math.floor(Number(value)) || 1));
 		else if (typeof value === 'string' && field !== 'budgetText' && field !== 'name') next = value.trim();
-		if (field === 'provider') {
-			// A new service brings its own address, model and image support.
-			const ep = readPath(s, key.slice(0, key.lastIndexOf('.'))) as ApiEndpoint | undefined;
-			const preset = presetFor(text(value));
-			if (ep) {
-				const oldName = presetFor(ep.provider).name;
-				Object.assign(ep, { endpoint: preset.baseUrl, model: preset.model, vision: preset.vision });
-				if (!ep.name || ep.name === oldName) ep.name = preset.name;
-				this.modelLists.delete(ep.id);
-			}
-			next = preset.id;
-		}
 		writePath(s, key, next);
 		await this.plugin.saveSettings();
 		if (field === 'budgetText' || field === 'serifNumbers') this.plugin.refreshDashboards();
 		// Names and summaries show on list entries.
-		if (['provider', 'name', 'description', 'amount', 'day', 'currency', 'enabled', 'model', 'folder', 'endpoint', 'vision', 'apiKeySecret'].includes(field)) this.update();
+		if (['name', 'description', 'amount', 'day', 'currency', 'enabled', 'folder'].includes(field)) this.update();
 	}
 
 	private async saveAndUpdate() {
@@ -312,64 +287,88 @@ export class AccountingSettingTab extends PluginSettingTab {
 		this.update();
 	}
 
-	private keyDesc(ep: ApiEndpoint): DocumentFragment {
-		const preset = presetFor(ep.provider);
-		const frag = new DocumentFragment();
-		frag.appendText(tr('Stored in Obsidian\'s secret storage on this device, not in the plugin\'s settings file, so it does not sync; enter it again on each device. ', '存在本机 Obsidian 的密钥库里，不在插件设置文件中，所以不会随库同步，换设备要重新选一次。'));
-		if (preset.keyOptional) frag.appendText(tr('Local servers may not need one.', '本地服务可以不填。'));
-		else if (preset.keyUrl) frag.createEl('a', { text: tr(`Get a ${preset.name} key`, `获取 ${preset.name} 密钥`), href: preset.keyUrl });
-		return frag;
+	serviceName(svc: AiService): string {
+		return svc.name || this.plugin.ai.provider(svc.ai).name;
 	}
 
-	private target(ep: ApiEndpoint) {
-		return { provider: ep.provider, baseUrl: ep.endpoint || presetFor(ep.provider).baseUrl, model: ep.model, apiKey: this.plugin.secret(ep.apiKeySecret || '') };
+	private serviceSummary(svc: AiService): string {
+		if (!svc.enabled) return tr('Off', '已停用');
+		const reads = isLocalAgent(svc.ai.provider) ? tr('text only, never receipts in images', '只读文字，不识图片票据') : svc.vision ? tr('reads images', '能识图') : tr('text only', '只读文字');
+		const noKey = this.plugin.ai.hasKey(svc.ai) ? '' : tr('no key selected', '还没选密钥');
+		return [noKey, svc.name ? this.plugin.ai.provider(svc.ai).name : '', svc.ai.model, reads].filter(Boolean).join(' · ');
 	}
 
-	private renderModelList(setting: Setting, ep: ApiEndpoint, index: number) {
-		const models = this.modelLists.get(ep.id);
-		if (models?.length) {
-			setting.addDropdown(dropdown => {
-				const options: Record<string, string> = { '': tr('Choose a model…', '选择模型…') };
-				for (const m of models) options[m] = m;
-				dropdown.addOptions(options).setValue(models.includes(ep.model) ? ep.model : '').onChange(value => {
-					if (value) void this.setControlValue(`apiEndpoints.${index}.model`, value);
-				});
-			});
-		}
-		setting.addButton(button => button.setButtonText(models ? tr('Fetch again', '重新获取') : tr('Fetch list', '获取列表')).onClick(async () => {
-			button.setDisabled(true);
-			setting.setDesc(tr('Asking the service…', '正在查询…'));
-			try {
-				const list = await listModels(this.target(ep));
-				this.modelLists.set(ep.id, list);
-				this.update();
-			} catch (error) {
-				setting.setDesc(error instanceof AiError ? error.message : describeFailure('network'));
-				button.setDisabled(false);
+	/** Saves a service changed on its own page and refreshes the list entry. */
+	async saveService(): Promise<void> {
+		await this.saveAndUpdate();
+	}
+}
+
+/**
+ * One service's page: the shared "AI service" group (provider, Keychain key with Check, model list),
+ * then this plugin's own rows. Nothing is requested until the user presses Check or Refresh.
+ */
+class AiServicePage extends SettingPage {
+	private ui: { destroy(): void } | null = null;
+	private stopGroups: (() => void) | null = null;
+
+	constructor(private tab: AccountingSettingTab, private svc: AiService) {
+		super();
+		this.title = tab.serviceName(svc);
+	}
+
+	display(): void {
+		const el = this.containerEl;
+		this.ui?.destroy();
+		el.empty();
+		el.addClass('aa-settings', 'ap', 'ap-settings');
+		const svc = this.svc;
+		const local = isLocalAgent(svc.ai.provider);
+		this.ui = renderAiSettings(el, {
+			app: this.tab.app,
+			client: this.tab.plugin.ai,
+			slot: svc.ai,
+			scene: 'cheap',
+			lang: aiLang(),
+			// Claude Code and Codex read text only: they can file statement rows, never read a receipt photo.
+			allowLocalAgents: true,
+			onChange: async slot => {
+				const wasLocal = isLocalAgent(svc.ai.provider);
+				svc.ai = slot;
+				if (isLocalAgent(slot.provider)) svc.vision = false;
+				else if (wasLocal) svc.vision = true;
+				await this.tab.saveService();
+				if (wasLocal !== isLocalAgent(slot.provider)) this.display();
 			}
-		}));
+		});
+		new Setting(el).setName(tr('This service', '这个服务')).setHeading();
+		new Setting(el)
+			.setName(tr('On', '启用'))
+			.setDesc(tr('When one service fails, the same receipt goes to the next one on.', '一个服务失败时，同一张票据会发给下一个启用的服务。'))
+			.addToggle(t => t.setValue(svc.enabled).onChange(async v => { svc.enabled = v; await this.tab.saveService(); }));
+		if (local) {
+			new Setting(el)
+				.setName(tr('Reads images', '能识图'))
+				.setDesc(tr('Programs on this computer read text only. They file statement rows; receipt photos go to the next service.', '本机程序只读文字：可以给账单分类，图片票据会交给下一个服务。'));
+		} else {
+			new Setting(el)
+				.setName(tr('Reads images', '能识图'))
+				.setDesc(tr('Turn off for a model that does not accept pictures. Image receipts skip services that cannot read them.', '模型不收图片时关掉。图片票据会跳过不能识图的服务。'))
+				.addToggle(t => t.setValue(svc.vision).onChange(async v => { svc.vision = v; await this.tab.saveService(); }));
+		}
+		new Setting(el)
+			.setName(tr('Name', '名称'))
+			.setDesc(tr('Shown in the list and while waiting. Leave empty to use the provider’s name.', '显示在列表和等待提示里。留空就用服务商名。'))
+			.addText(t => t.setPlaceholder(this.tab.plugin.ai.provider(svc.ai).name).setValue(svc.name).onChange(async v => { svc.name = v.trim(); await this.tab.saveService(); }));
+		this.stopGroups?.();
+		this.stopGroups = watchSettingGroups(el);
 	}
 
-	private renderTest(setting: Setting, ep: ApiEndpoint) {
-		let diagnostics = '';
-		let copyEl: HTMLElement | undefined;
-		setting.addButton(button => button.setButtonText(tr('Test', '测试')).onClick(async () => {
-			button.setDisabled(true);
-			setting.setDesc(tr('Testing…', '测试中…'));
-			const result = await testConnection(this.target(ep), `${this.plugin.manifest.name} ${this.plugin.manifest.version}`);
-			diagnostics = result.diagnostics;
-			setting.setDesc(result.message);
-			setting.descEl.toggleClass('mod-warning', !result.ok);
-			if (result.models?.length) this.modelLists.set(ep.id, result.models);
-			copyEl?.toggle(true);
-			button.setDisabled(false);
-		}));
-		setting.addExtraButton(extra => {
-			copyEl = extra.extraSettingsEl;
-			extra.setIcon('copy').setTooltip(tr('Copy diagnostics (no key, no ledger content)', '复制诊断信息（不含密钥和账目）')).onClick(() => {
-				void navigator.clipboard.writeText(diagnostics).then(() => new Notice(tr('Diagnostics copied. They contain no key and no ledger content.', '诊断信息已复制，不含密钥和账目内容。')));
-			});
-		});
-		copyEl?.toggle(false);
+	hide(): void {
+		this.ui?.destroy();
+		this.ui = null;
+		this.stopGroups?.();
+		this.stopGroups = null;
+		super.hide();
 	}
 }

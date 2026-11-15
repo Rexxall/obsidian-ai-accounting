@@ -34,6 +34,11 @@ interface RenderContext {
     yyyy_mm_dd: string;
 }
 
+/** True for a key that belongs to an IME candidate, including Safari's Enter that confirms one (keyCode 229, isComposing false). */
+function isImeKey(e: KeyboardEvent): boolean {
+    return e.isComposing || e.key === 'Process' || Reflect.get(e, 'keyCode') === 229;
+}
+
 export class DashboardView extends ItemView {
     plugin: AccountingPlugin;
     dataService: DataService;
@@ -1470,7 +1475,7 @@ export class DashboardView extends ItemView {
                 saveBtn.onclick = handleAdd;
                 [descInput, catInput, amountInput, payInput].forEach(input => {
                     input.onkeydown = (e) => {
-                        if (e.isComposing || e.keyCode === 229) return;
+            if (isImeKey(e)) return;
                         if (e.key === 'Enter') void handleAdd();
                     };
                 });
@@ -2004,7 +2009,7 @@ export class DashboardView extends ItemView {
         };
 
         input.onkeydown = (e) => {
-            if (e.isComposing || e.keyCode === 229) return;
+            if (isImeKey(e)) return;
             if (e.key === 'Enter') {
                 void saveChanges();
             } else if (e.key === 'Escape') {

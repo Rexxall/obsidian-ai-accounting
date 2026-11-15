@@ -10,20 +10,21 @@ import { ReviewImportModal } from "./modals/ReviewImportModal";
 import { migrateSettings } from './services/migrate';
 import { recurringDrafts } from "./services/planning";
 import { TransactionRecord } from "./services/DataService";
-import { CategoryQuestion, TRANSFER_CATEGORY, TransactionData, failureMessage } from "./services/AIService";
+import { CategoryQuestion, ChatImage, TRANSFER_CATEGORY, TransactionData, failureMessage } from "./services/AIService";
 import { ReviewSource } from "./modals/ReviewImportModal";
 import { IMAGE_TYPES, MAX_NOTE_IMAGES, embeddedImageLinks } from "./services/embeds";
 import { defaultLedgerNames, monthOf, monthPath, rewriteLinkTargets } from "./services/ledgerFiles";
-import { ChatImage } from "./ai/providers";
 import { PendingDraft } from "./settings";
 import { TaskProgress } from "./ai/progress";
-import { AiError } from "./ai/providers";
+import { AiError, createAiClient } from "./ai/kit";
+import { moveKeys } from "./services/migrate";
 import { isZh, tr } from "./i18n";
 import { decodeStatement, readStatement } from "./services/statement";
 import { Origin, fromHistory, learn } from "./services/categorize";
 import { registerBasesViewWhenReady } from "./basesSupport";
 import { LEDGER_VIEW_ID, ledgerViewRegistration } from "./LedgerBasesView";
 import { withCssClass } from "./services/noteClass";
+import type { AiClient } from "./vendor/rex-ai-kit/index";
 
 async function sha256(text: string): Promise<string> {
 	return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))), byte => byte.toString(16).padStart(2, '0')).join('');
@@ -36,13 +37,16 @@ export default class AccountingPlugin extends Plugin {
 	settings: AccountingSettings;
 	fxService: FXService;
 	aiService: AIService;
+	/** Shared AI layer: providers, Keychain keys, model lists. */
+	ai: AiClient;
 	dataService: DataService;
 
 	async onload() {
 		await this.loadSettings();
 
 		this.fxService = new FXService(this.app, this.manifest.dir!);
-		this.aiService = new AIService(this.settings, name => this.secret(name));
+		this.ai = createAiClient(this.app.secretStorage, this.settings.modelCache);
+		this.aiService = new AIService(this.settings, this.ai);
 		this.dataService = new DataService(this.app, this.settings);
 
 
@@ -439,7 +443,7 @@ export default class AccountingPlugin extends Plugin {
 			progress.step(tr('Asking for categories…', '请 AI 建议分类…'), 1, 2);
 			try {
 				const suggested = await this.aiService.suggestCategories(questions, memory.categories, {
-					token: progress.token,
+					signal: progress.signal,
 					onAttempt: service => progress.step(tr(`Waiting for ${service}…`, `等待 ${service} 回复…`), 2, 2)
 				});
 				for (const [i, category] of suggested) {
@@ -448,7 +452,7 @@ export default class AccountingPlugin extends Plugin {
 				}
 				progress.close();
 			} catch (error) {
-				if (progress.cancelled || (error instanceof AiError && error.kind === 'cancelled')) aiNote = tr('AI suggestions were cancelled.', '已取消 AI 建议。');
+				if (progress.cancelled || (error instanceof AiError && error.kind === 'aborted')) aiNote = tr('AI suggestions were cancelled.', '已取消 AI 建议。');
 				else { progress.close(); aiNote = `${tr('No AI suggestions:', '没拿到 AI 建议：')} ${failureMessage(error)}`; }
 			}
 		} else if (questions.length) {
@@ -491,7 +495,7 @@ export default class AccountingPlugin extends Plugin {
 		progress.step(tr('Preparing…', '准备中…'), 1, 3);
 		try {
 			const rows = await this.aiService.processInput(text, images, {
-				token: progress.token,
+				signal: progress.signal,
 				onAttempt: (service, index, total) => progress.step(total > 1
 					? tr(`Waiting for ${service} (service ${index} of ${total})…`, `等待 ${service} 回复（第 ${index}/${total} 个服务）…`)
 					: tr(`Waiting for ${service}…`, `等待 ${service} 回复…`), 2, 3)
@@ -500,7 +504,7 @@ export default class AccountingPlugin extends Plugin {
 			progress.close();
 			return rows;
 		} catch (error) {
-			if (progress.cancelled || (error instanceof AiError && error.kind === 'cancelled')) return null;
+			if (progress.cancelled || (error instanceof AiError && error.kind === 'aborted')) return null;
 			// Without a service there is nothing to retry; the next step is the settings.
 			const setup = error instanceof AiError && (error.detail === 'no-service' || error.detail === 'no-vision' || error.kind === 'no-key');
 			if (setup) progress.fail(failureMessage(error), () => this.openSettings(), tr('Open settings', '打开设置'));
@@ -803,7 +807,7 @@ export default class AccountingPlugin extends Plugin {
 		let data = await this.loadData() as Partial<AccountingSettings> | null;
 		const imported = !data ? await this.importFromOldId() : null;
 		if (imported) data = imported;
-		const legacyShape = !!data && 'aiProvider' in data;
+		const legacyShape = !!data && ('aiProvider' in data || 'apiEndpoints' in data);
 		this.settings = migrateSettings(data, DEFAULT_SETTINGS);
 		const movedKeys = this.moveKeysToSecretStorage();
 		const namedLedgers = !this.settings.ledgerNames;
@@ -831,35 +835,15 @@ export default class AccountingPlugin extends Plugin {
 		}
 	}
 
-	/** Plain-text keys from before 0.5.0 (Gemini's included, now an entry in the list) move into Obsidian's secret storage; settings keep only the names. */
+	/** Plain-text keys from older versions move into the Keychain; settings keep only the names. Reads the Keychain only, no network. */
 	private moveKeysToSecretStorage(): boolean {
-		const storage = this.app.secretStorage;
-		const s = this.settings;
-		let moved = false;
-		const store = (preferred: string, fallback: string, key: string): string => {
-			const existing = storage.getSecret(preferred);
-			const name = !existing || existing === key ? preferred : fallback;
-			storage.setSecret(name, key);
-			moved = true;
-			return name;
-		};
-		for (const ep of s.apiEndpoints) {
-			if (!ep.apiKey || ep.apiKeySecret) continue;
-			const id = ep.provider === 'gemini' ? 'gemini-api-key' : `ai-accounting-endpoint-${ep.id.toLowerCase().replace(/[^a-z0-9-]/g, '')}`;
-			ep.apiKeySecret = store(id, `ai-accounting-endpoint-${ep.id.toLowerCase().replace(/[^a-z0-9-]/g, '')}-2`, ep.apiKey);
-			ep.apiKey = '';
-		}
-		return moved;
-	}
-
-	secret(name: string): string {
-		return (name && this.app.secretStorage.getSecret(name)) || '';
+		return moveKeys(this.settings.aiServices, this.app.secretStorage);
 	}
 
 	async saveSettings() {
+		if (this.ai) this.settings.modelCache = this.ai.cache.toJSON();
 		await this.saveData(this.settings);
-		// Refresh AI Service with new settings
-		this.aiService = new AIService(this.settings, name => this.secret(name));
+		if (this.ai) this.aiService = new AIService(this.settings, this.ai);
 	}
 }
 
