@@ -2,19 +2,19 @@
 
     python3 make_svgs.py <pc|jws|aa> <out dir>
 
-Same frame, palette and type as the Git Note History sample (readme-kit); the right half of the hero
-draws the plugin's own interface with the demo vault's made-up data.
+AI Accounting uses paper neutrals and blue ballpoint accents. The hero draws
+a receipt and review rows with made-up data.
 """
 import sys
 from pathlib import Path
 
 THEMES = {
-    "light": dict(bg="#F7F6FB", fg="#1D1B26", muted="#6B6780", line="#E4E1EE",
-                  card="#FFFFFF", accent="#7A5AF0", accent_soft="#EEE9FF",
+    "light": dict(bg="#F7F7F5", fg="#2A2829", muted="#686566", line="#E2E2DE",
+                  card="#FFFFFF", accent="#2F5FD0", action="#2F5FD0", action_text="#FFFFFF", soft="#E2E9FB",
                   red="#C93A40", red_soft="#FCEBEC", green="#22855A", green_soft="#E5F4EC",
                   orange="#B25E09", orange_soft="#FBEEDD"),
-    "dark": dict(bg="#15141B", fg="#EEECF5", muted="#9C98AF", line="#2C2A36",
-                 card="#1E1D26", accent="#A48BFF", accent_soft="#2C2643",
+    "dark": dict(bg="#161718", fg="#EDEDEA", muted="#9C9A9B", line="#2B2C2E",
+                 card="#1E1F21", accent="#7FA2F0", action="#7FA2F0", action_text="#111214", soft="#1F2A44",
                  red="#F07C80", red_soft="#3A1E24", green="#5CC892", green_soft="#16301F",
                  orange="#F2A65A", orange_soft="#3A2A18"),
 }
@@ -79,7 +79,7 @@ def proof_jws(c, zh):
 def proof_aa(c, zh):
     t = (lambda en, cn: cn if zh else en)
     lines = "".join(f'<rect x="740" y="{y}" width="{w}" height="6" rx="3" fill="{c["line"]}"/>' for y, w in
-                    [(118, 70), (138, 90), (166, 96), (182, 80), (198, 88), (222, 70), (238, 84), (262, 60)])
+                    [(118, 70), (138, 90), (166, 96), (182, 80), (198, 88), (222, 70), (238, 84)])
     rows = [(t("Onigiri, green tea", "饭团、绿茶"), t("Convenience store", "便利店"), "¥450"),
             (t("Notebook, pen", "本子、圆珠笔"), t("Stationery", "文具"), "¥330")]
     out = [f"""
@@ -87,18 +87,20 @@ def proof_aa(c, zh):
     <rect x="724" y="74" width="128" height="250" rx="10" fill="{c['bg']}" stroke="{c['line']}"/>
     <rect x="752" y="92" width="72" height="10" rx="5" fill="{c['muted']}"/>
     {lines}
+    <text x="752" y="282" font-size="18" font-weight="600" fill="{c['fg']}">¥780</text>
+    <path d="M744 276 C738 252 830 250 836 274 C841 295 749 299 744 278 C741 263 803 251 828 263" fill="none" stroke="{c['accent']}" stroke-width="2.5" stroke-linecap="round"/>
     <path d="M864 199 H884" stroke="{c['accent']}" stroke-width="3" stroke-linecap="round"/>
     <path d="M878 192 L886 199 L878 206" fill="none" stroke="{c['accent']}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>"""]
     for i, (title, cat, amount) in enumerate(rows):
         y = 84 + i * 92
         out.append(f'<rect x="896" y="{y}" width="216" height="80" rx="14" fill="{c["bg"]}"/>')
         out.append(f'<text x="912" y="{y + 28}" font-size="16" fill="{c["fg"]}">{esc(title)}</text>')
-        pill = round(len(cat) * (13 if zh else 7.4) + 22)
-        out.append(f'<rect x="912" y="{y + 42}" width="{pill}" height="24" rx="12" fill="{c["accent_soft"]}"/>')
+        pill = round(len(cat) * (13 if zh else 6.5) + 22)
+        out.append(f'<rect x="912" y="{y + 42}" width="{pill}" height="24" rx="12" fill="{c["soft"]}"/>')
         out.append(f'<text x="{912 + pill / 2}" y="{y + 59}" font-size="13" text-anchor="middle" fill="{c["accent"]}">{esc(cat)}</text>')
         out.append(f'<text x="1098" y="{y + 60}" font-size="18" font-weight="600" text-anchor="end" fill="{c["fg"]}">{amount}</text>')
-    out.append(f'<rect x="896" y="276" width="216" height="44" rx="22" fill="{c["accent"]}"/>')
-    out.append(f'<text x="1004" y="304" font-size="18" font-weight="600" text-anchor="middle" fill="{c["card"]}">{t("Record 2", "确认 2 笔入账")}</text>')
+    out.append(f'<rect x="896" y="276" width="216" height="44" rx="22" fill="{c["action"]}"/>')
+    out.append(f'<text x="1004" y="304" font-size="18" font-weight="600" text-anchor="middle" fill="{c["action_text"]}">{t("Record 2", "确认 2 笔入账")}</text>')
     return "\n    ".join(out)
 
 
@@ -195,7 +197,7 @@ def glyph(kind, x, y, c):
                 f'<path d="M{x+11} {y+20} H{x+37}" stroke="{a}" stroke-width="2.5"/>'
                 f'<rect x="{x+16}" y="{y+25}" width="7" height="6" rx="2" fill="{a}"/>')
     if kind == "check":
-        return (f'<path d="M{x+13} {y+25} L{x+21} {y+33} L{x+36} {y+16}" fill="none" stroke="{g}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>')
+        return (f'<path d="M{x+13} {y+25} L{x+21} {y+33} L{x+36} {y+16}" fill="none" stroke="{a}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>')
     if kind == "table":
         return (f'<rect x="{x+11}" y="{y+13}" width="26" height="22" rx="4" fill="none" stroke="{a}" stroke-width="2.5"/>'
                 f'<path d="M{x+11} {y+21} H{x+37} M{x+11} {y+28} H{x+37} M{x+21} {y+13} V{y+35}" stroke="{a}" stroke-width="2"/>')
@@ -211,7 +213,7 @@ def cards(p, c, zh):
     for i, (title, body, kind) in enumerate(text["cards"]):
         x = 24 + i * 392
         parts.append(f'<rect x="{x}" y="16" width="368" height="158" rx="22" fill="{c["bg"]}" stroke="{c["line"]}"/>')
-        parts.append(f'<rect x="{x+28}" y="44" width="48" height="48" rx="14" fill="{c["accent_soft"]}"/>')
+        parts.append(f'<rect x="{x+28}" y="44" width="48" height="48" rx="14" fill="{c["soft"]}"/>')
         parts.append(glyph(kind, x + 28, 44, c))
         parts.append(f'<text x="{x+96}" y="78" font-size="{27 if not zh else 26}" font-weight="700" fill="{c["fg"]}">{esc(title)}</text>')
         parts.append(f'<text x="{x+28}" y="138" font-size="20" fill="{c["muted"]}">{esc(body)}</text>')
