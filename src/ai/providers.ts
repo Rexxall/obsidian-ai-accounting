@@ -204,8 +204,11 @@ export async function chat(target: AiTarget, input: ChatInput, timeoutMs = 90000
     for (const image of input.images ?? []) content.push({ type: 'image_url', image_url: { url: `data:${image.mimeType};base64,${image.data}` } });
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (target.apiKey) headers.Authorization = `Bearer ${target.apiKey}`;
-    const payload: Record<string, unknown> = { model: target.model, messages: [{ role: 'user', content: input.images?.length ? content : input.prompt }], temperature: 0.1 };
-    if (input.maxTokens) payload.max_tokens = input.maxTokens;
+    // OpenAI reasoning models (o-series, gpt-5 and later) and Claude 5 reject `temperature`; the o/gpt-5 line also wants max_completion_tokens.
+    const reasoning = isReasoningModel(target.model);
+    const payload: Record<string, unknown> = { model: target.model, messages: [{ role: 'user', content: input.images?.length ? content : input.prompt }] };
+    if (!reasoning) payload.temperature = 0.1;
+    if (input.maxTokens) payload[reasoning && !/claude/i.test(target.model) ? 'max_completion_tokens' : 'max_tokens'] = input.maxTokens;
     const post = (body: Record<string, unknown>) => send('chat', target, { url: `${base}/chat/completions`, method: 'POST', headers, body: JSON.stringify(body) }, timeoutMs, token);
     let response;
     try {
@@ -294,4 +297,10 @@ export const TEST_COST_NOTE = () => tr(
 export function serviceLabel(target: AiTarget): string {
     const preset = presetFor(target.provider);
     return preset.id === 'custom' ? hostOf(target.baseUrl) || preset.name : preset.name;
+}
+
+/** OpenAI reasoning models (o-series, gpt-5 and later) and Claude 5 and later, which reject `temperature`. */
+export function isReasoningModel(model: string | undefined): boolean {
+    const name = (model ?? '').trim().toLowerCase().replace(/^(openai|anthropic)\//, '');
+    return /^(o\d|gpt-([5-9]|\d{2,})|claude-[a-z]+-([5-9]|\d{2,}))/.test(name);
 }
