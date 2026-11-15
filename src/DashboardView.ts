@@ -1,5 +1,7 @@
 import { ItemView, WorkspaceLeaf, Notice, setIcon } from 'obsidian';
 import { Chart, registerables } from 'chart.js';
+import { RangeSelect } from './RangeSelect';
+import { dailySeries, monthlySeries } from './services/rangeCompare';
 import { DataService, MonthlyStats, TransactionRecord } from './services/DataService';
 import AccountingPlugin from './main';
 import { RenameCategoryModal } from './modals/RenameCategoryModal';
@@ -48,6 +50,10 @@ export class DashboardView extends ItemView {
     // Unified State
     currentDate: Date = new Date();
     chartScope: ChartScope = 'month';
+    /** Trend chart: one bar per day of the viewed month, or per month. */
+    trendUnit: 'day' | 'month' = 'month';
+    /** The two bars picked on the trend chart, kept across redraws. */
+    trendRange: { unit: 'day' | 'month'; a: string; b: string | null } | null = null;
     currentTab: PanelTab = PanelTab.Transactions;
 
     // Filters
@@ -716,10 +722,20 @@ export class DashboardView extends ItemView {
             this.renderCategoryChart(canvas, displayStats);
             chartCard.createDiv({ cls: 'ap-cap', text: tr('Click a category for its subcategories; ⌥ or ⌘ click to rename it.', '点分类看子分类；按住 ⌥ 或 ⌘ 点击可以重命名分类。') });
 
-            const trendCard = charts.createDiv({ cls: 'ap-card aa-chart-card' });
-            trendCard.createDiv({ cls: 'ap-label', text: tr('Monthly trend', '月度趋势') });
-            const trendCanvas = trendCard.createDiv({ cls: 'aa-chart' }).createEl('canvas');
-            void this.renderTrendChart(trendCanvas, this.allStats);
+            const trendCard = charts.createDiv({ cls: 'ap-card aa-chart-card aa-trend-card' });
+            const trendHead = trendCard.createDiv({ cls: 'aa-card-head' });
+            trendHead.createDiv({ cls: 'ap-label', text: tr('Trend', '趋势') });
+            const unitSeg = trendHead.createDiv({ cls: 'ap-seg aa-trend-unit', attr: { role: 'group', 'aria-label': tr('Bar per', '每根柱子') } });
+            ([['day', tr('By day', '按日')], ['month', tr('By month', '按月')]] as const).forEach(([key, label]) => {
+                const btn = unitSeg.createEl('button', { text: label, cls: this.trendUnit === key ? 'is-active' : '', attr: { 'aria-pressed': String(this.trendUnit === key) } });
+                btn.onclick = () => {
+                    if (this.trendUnit === key) return;
+                    this.trendUnit = key;
+                    void this.render();
+                };
+            });
+            const trendWrap = trendCard.createDiv({ cls: 'aa-chart' });
+            void this.renderTrendChart(trendCard, trendWrap, this.allStats);
 
             const paymentCard = charts.createDiv({ cls: 'ap-card aa-chart-card' });
             paymentCard.createDiv({ cls: 'ap-label', text: tr('Payment method', '支付方式') });
@@ -1846,74 +1862,106 @@ export class DashboardView extends ItemView {
         });
     }
 
-    private async renderTrendChart(canvas: HTMLCanvasElement, allStats: MonthlyStats[]) {
-        // Filter allStats by user if selected
-        let statsToRender = allStats;
-        if (this.selectedUserId !== 'all') {
-            statsToRender = allStats.filter(s => s.userId === this.selectedUserId || (!s.userId && this.selectedUserId === 'default'));
-        }
-
-        // We need to group by month and sum totals (in case of multiple users even after filter? No, if filtered, it's specific)
-        // BUT if scope is 'all', we have multiple files per month. We must aggregate them.
-        const monthlyTotals: Record<string, number> = {};
-
+    private async renderTrendChart(card: HTMLElement, wrap: HTMLElement, allStats: MonthlyStats[]) {
+        const canvas = wrap.createEl('canvas');
+        const statsToRender = this.selectedUserId === 'all'
+            ? allStats
+            : allStats.filter(s => s.userId === this.selectedUserId || (!s.userId && this.selectedUserId === 'default'));
         const base = this.plugin.settings.baseCurrency;
         const target = this.displayCurrency;
+        const unit = this.trendUnit;
+        const viewed = `${this.currentDate.getFullYear()}-${String(this.currentDate.getMonth() + 1).padStart(2, '0')}`;
 
+        // Totals per day of the viewed month, or per month, in the display currency.
+        const totals: Record<string, number> = {};
         for (const s of statsToRender) {
-            let val = 0;
-            if (base === target) {
-                val = s.total;
-            } else {
-                for (const record of s.transactions) {
-                    val += await this.plugin.fxService.convert(spent(record), base, target, record.date);
-                }
+            if (unit === 'day' && s.month !== viewed) continue;
+            if (unit === 'month' && base === target) {
+                totals[s.month] = (totals[s.month] || 0) + s.total;
+                continue;
             }
-            monthlyTotals[s.month] = (monthlyTotals[s.month] || 0) + val;
+            for (const record of s.transactions) {
+                const value = base === target ? spent(record) : await this.plugin.fxService.convert(spent(record), base, target, record.date);
+                const key = unit === 'day' ? record.date : s.month;
+                totals[key] = (totals[key] || 0) + value;
+            }
         }
-
-        const labels = Object.keys(monthlyTotals).sort();
-        const data = labels.map(label => monthlyTotals[label]);
+        const today = new Date();
+        const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+        const points = unit === 'day' ? dailySeries(viewed, totals, todayKey) : monthlySeries(totals);
+        if (!canvas.isConnected) return;
 
         const textColor = this.getObsidianColor('--ap-label-2');
         const gridColor = this.getObsidianColor('--ap-sep');
         const accentColor = this.getObsidianColor('--ap-accent');
         const restColor = this.getObsidianColor('--aa-series-8');
-        const current = `${this.currentDate.getFullYear()}-${String(this.currentDate.getMonth() + 1).padStart(2, '0')}`;
+        const current = unit === 'day' ? todayKey : viewed;
+        const label = (key: string) => unit === 'day'
+            ? (isZh() ? `${parseInt(key.slice(5, 7), 10)} 月 ${parseInt(key.slice(8), 10)} 日` : new Date(`${key}T12:00:00`).toLocaleDateString('en', { month: 'short', day: 'numeric' }))
+            : (isZh() ? `${key.slice(0, 4)} 年 ${parseInt(key.slice(5), 10)} 月` : new Date(`${key}-01T12:00:00`).toLocaleDateString('en', { year: 'numeric', month: 'short' }));
 
-        new Chart(canvas, {
+        const saved = this.trendRange?.unit === unit ? this.trendRange : null;
+        const range = new RangeSelect({
+            card,
+            wrap,
+            points,
+            unit,
+            label,
+            // A real minus sign, matching the difference line.
+            money: n => `${n < 0 ? '−' : ''}${this.formatAmount(Math.abs(n))} ${this.displayCurrency}`,
+            colors: { band: this.withAlpha(accentColor, 0.12), edge: accentColor, cursor: textColor },
+            initial: saved,
+            onChange: picked => {
+                this.trendRange = picked ? { unit, ...picked } : null;
+                paint(!!picked);
+            }
+        });
+        // With a range picked, the accent belongs to the range; today or the viewed month steps back.
+        const paint = (picking: boolean) => {
+            const ds = chart.data.datasets[0];
+            if (!ds) return;
+            ds.backgroundColor = points.map(p => p.key === current && !picking ? accentColor : this.withAlpha(restColor, 0.55));
+            ds.borderColor = points.map(p => p.key === current && !picking ? accentColor : restColor);
+            chart.update('none');
+        };
+        if (points.length >= 2) card.createDiv({ cls: 'ap-cap', text: tr('Click two bars, or drag across them, to compare.', '点两根柱子或横着拖一下，比较两个时间点。') });
+
+        const chart = new Chart(canvas, {
             type: 'bar',
             data: {
-                labels: labels,
+                labels: points.map(p => unit === 'day' ? String(parseInt(p.key.slice(8), 10)) : p.key),
                 datasets: [{
                     label: tr(`Spent (${this.displayCurrency})`, `支出金额 (${this.displayCurrency})`),
-                    data: data,
-                    // Only the month being viewed is highlighted.
-                    backgroundColor: labels.map(label => label === current ? accentColor : this.withAlpha(restColor, 0.55)),
-                    borderColor: labels.map(label => label === current ? accentColor : restColor),
+                    data: points.map(p => p.value),
+                    // Today, or the month being viewed, is highlighted.
+                    backgroundColor: points.map(p => p.key === current && !saved ? accentColor : this.withAlpha(restColor, 0.55)),
+                    borderColor: points.map(p => p.key === current && !saved ? accentColor : restColor),
                     borderWidth: 1,
-                    borderRadius: 3
+                    borderRadius: 3,
+                    // One month of data should read as a bar, not a wall.
+                    maxBarThickness: 48
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                animation: this.reducedMotion() ? false : undefined,
                 scales: {
-                    y: {
-                        beginAtZero: true,
-                        grid: { color: gridColor },
-                        ticks: { color: textColor }
-                    },
-                    x: {
-                        grid: { display: false },
-                        ticks: { color: textColor }
-                    }
+                    y: { beginAtZero: true, grid: { color: gridColor }, ticks: { color: textColor } },
+                    x: { grid: { display: false }, ticks: { color: textColor, autoSkip: true, maxRotation: 0 } }
                 },
                 plugins: {
-                    legend: { display: false }
+                    legend: { display: false },
+                    tooltip: { callbacks: { title: items => { const p = points[items[0]?.dataIndex ?? -1]; return p ? label(p.key) : ''; } } }
                 }
-            }
+            },
+            plugins: [range.plugin()]
         });
+        range.attach(chart);
+    }
+
+    private reducedMotion(): boolean {
+        return this.containerEl.ownerDocument.defaultView?.matchMedia('(prefers-reduced-motion: reduce)').matches ?? false;
     }
 
     private clearAllFilters() {

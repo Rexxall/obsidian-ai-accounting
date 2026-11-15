@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Compare two points on the trend chart.** Click two bars, or drag across them, and a popover reads the change: from → to, the difference, the percentage and what was spent in between. By day (the viewed month, up to today) or by month (gaps filled, across years). Works with touch, and with the keyboard: arrows move, Enter picks, Shift with an arrow stretches, Esc clears. On narrow panes the popover sits under the chart.
 - **AI services, rebuilt on the shared AI layer.** OpenAI, Anthropic and Gemini come first, then DeepSeek, OpenRouter, Qwen, Kimi, Zhipu, SiliconFlow, Ollama, LM Studio and any OpenAI-compatible server. Keys are picked from Obsidian's Keychain under shared names (`openai-api-key` …), so one key serves every plugin. **Check** lists the models the key can use, shows the balance where the provider offers one, and the model menu puts recommended picks first. New services start on OpenAI `gpt-6-luna`.
 - Claude Code and Codex on this computer can file statement rows; they read text only, so receipt photos go to the next service.
 - Every AI error names the service and the next step: no key, key rejected, out of quota, model missing, timed out, offline.

@@ -233,6 +233,30 @@
 .ai-accounting-dashboard-container .aa-chart { position: relative; height: 250px; margin: 8px 0; }
 .ai-accounting-dashboard-container .aa-chart.is-small { height: 200px; }
 
+/* Trend range: pick two bars, read the change under the chart. The band and edges use the theme accent
+   (selection); the readout is a plain tinted panel with no colour judgement on more or less spending. */
+.ai-accounting-dashboard-container .aa-trend-card .aa-chart { touch-action: pan-y; border-radius: 8px; }
+.ai-accounting-dashboard-container .aa-trend-card .aa-chart:focus-visible { outline: 2px solid var(--ap-accent); outline-offset: 2px; }
+.ai-accounting-dashboard-container .aa-range-pop {
+	margin: 4px 0 8px;
+	padding: 10px 12px;
+	border-radius: 12px;
+	background: var(--ap-fill);
+	font-variant-numeric: tabular-nums;
+}
+.ai-accounting-dashboard-container .aa-range-head { display: flex; align-items: baseline; gap: 8px; }
+.ai-accounting-dashboard-container .aa-range-when { font-weight: 600; color: var(--ap-label); text-wrap-style: pretty; }
+.ai-accounting-dashboard-container .aa-range-span { color: var(--ap-label-2); font-size: var(--font-ui-smaller); white-space: nowrap; }
+.ai-accounting-dashboard-container .aa-range-close { margin-inline-start: auto; align-self: center; padding: 2px; }
+.ai-accounting-dashboard-container .aa-range-value { margin-top: 6px; color: var(--ap-label); }
+.ai-accounting-dashboard-container .aa-range-delta { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 2px; font-size: 1.15em; font-weight: 600; color: var(--ap-label); }
+.ai-accounting-dashboard-container .aa-range-pct { color: var(--ap-label-2); font-weight: 500; }
+.ai-accounting-dashboard-container .aa-range-pop .ap-cap { margin-top: 6px; text-wrap-style: pretty; }
+@media (prefers-reduced-motion: no-preference) {
+	.ai-accounting-dashboard-container .aa-range-pop { animation: aa-range-in 140ms ease-out; }
+}
+@keyframes aa-range-in { from { opacity: 0; transform: translateY(-2px); } }
+
 /* Empty state */
 .ai-accounting-dashboard-container .aa-empty-state { max-width: 520px; margin: 40px auto; text-align: center; }
 .ai-accounting-dashboard-container .aa-empty-state .ap-sub { margin: 8px 0 16px; }

@@ -4,6 +4,7 @@ import { resolveProvider } from './catalog';
 import { complete } from './chat';
 import { ModelCache, fetchModels } from './models';
 import type { CliRunner } from './cli';
+import type { Lang } from './i18n';
 import type { AiSlot, Balance, CompleteOptions, CompleteResult, KeyCheck, ModelInfo, Provider, StreamTransport, Transport } from './types';
 
 /** The two calls of Obsidian's SecretStorage the kit needs. app.secretStorage satisfies it. */
@@ -46,6 +47,8 @@ export interface AiClientOptions {
 	cache?: ModelCache;
 	/** Runner for local agents; pass nodeCliRunner() on desktop, leave out on mobile. */
 	cli?: CliRunner;
+	/** Language for provider names in the settings and in error messages. Default English. */
+	lang?: Lang;
 }
 
 /** What plugins hold: one object that knows the keys, the transport and the model cache. */
@@ -56,7 +59,11 @@ export class AiClient {
 	}
 
 	provider(slot: AiSlot): Provider {
-		return resolveProvider(slot);
+		return resolveProvider(slot, this.o.lang);
+	}
+
+	get lang(): Lang {
+		return this.o.lang ?? 'en';
 	}
 
 	hasKey(slot: AiSlot): boolean {

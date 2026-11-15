@@ -91,7 +91,8 @@ export const PROVIDERS: Provider[] = [
 	},
 	{
 		id: 'qwen',
-		name: '通义千问（阿里云百炼）',
+		name: 'Qwen (Alibaba Model Studio)',
+		names: { zh: '通义千问（阿里云百炼）', ja: 'Qwen（Alibaba Model Studio）' },
 		group: 'more',
 		protocol: 'openai',
 		baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
@@ -103,7 +104,8 @@ export const PROVIDERS: Provider[] = [
 	},
 	{
 		id: 'kimi',
-		name: 'Kimi（Moonshot）',
+		name: 'Kimi (Moonshot)',
+		names: { zh: 'Kimi（Moonshot）', ja: 'Kimi（Moonshot）' },
 		group: 'more',
 		protocol: 'openai',
 		baseUrl: 'https://api.moonshot.cn/v1',
@@ -116,7 +118,8 @@ export const PROVIDERS: Provider[] = [
 	},
 	{
 		id: 'zhipu',
-		name: '智谱 GLM',
+		name: 'Zhipu GLM',
+		names: { zh: '智谱 GLM' },
 		group: 'more',
 		protocol: 'openai',
 		baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
@@ -131,7 +134,8 @@ export const PROVIDERS: Provider[] = [
 	},
 	{
 		id: 'siliconflow',
-		name: '硅基流动',
+		name: 'SiliconFlow',
+		names: { zh: '硅基流动' },
 		group: 'more',
 		protocol: 'openai',
 		baseUrl: 'https://api.siliconflow.cn/v1',
@@ -169,6 +173,7 @@ export const PROVIDERS: Provider[] = [
 	{
 		id: 'claude-code',
 		name: 'Claude Code (this computer)',
+		names: { zh: 'Claude Code（本机）', ja: 'Claude Code（このパソコン）' },
 		group: 'local',
 		protocol: 'cli',
 		baseUrl: '',
@@ -186,6 +191,7 @@ export const PROVIDERS: Provider[] = [
 	{
 		id: 'codex',
 		name: 'Codex (this computer)',
+		names: { zh: 'Codex（本机）', ja: 'Codex（このパソコン）' },
 		group: 'local',
 		protocol: 'cli',
 		baseUrl: '',
@@ -203,6 +209,7 @@ export const PROVIDERS: Provider[] = [
 	{
 		id: 'custom',
 		name: 'Other (OpenAI compatible)',
+		names: { zh: '其他（OpenAI 兼容）', ja: 'その他（OpenAI 互換）' },
 		group: 'custom',
 		protocol: 'openai',
 		baseUrl: '',
@@ -219,11 +226,17 @@ export function getProvider(id: string): Provider | undefined {
 	return BY_ID.get(id);
 }
 
-/** Provider with the slot's overrides applied (custom base URL, own Keychain name). */
-export function resolveProvider(slot: { provider: string; baseUrl?: string; secretName?: string }): Provider {
+/** The provider's name in one of the kit's languages. */
+export function providerName(p: Pick<Provider, 'name' | 'names'>, lang: 'en' | 'zh' | 'ja' = 'en'): string {
+	return (lang !== 'en' && p.names?.[lang]) || p.name;
+}
+
+/** Provider with the slot's overrides applied (custom base URL, own Keychain name), named in `lang`. */
+export function resolveProvider(slot: { provider: string; baseUrl?: string; secretName?: string }, lang: 'en' | 'zh' | 'ja' = 'en'): Provider {
 	const base = BY_ID.get(slot.provider) ?? BY_ID.get('custom')!;
 	return {
 		...base,
+		name: providerName(base, lang),
 		baseUrl: (slot.baseUrl?.trim() || base.baseUrl).replace(/\/+$/, ''),
 		secretName: slot.secretName?.trim() || base.secretName,
 	};

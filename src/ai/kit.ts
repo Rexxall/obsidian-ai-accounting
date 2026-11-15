@@ -14,6 +14,7 @@ export function createAiClient(keys: KeyStore, cache: ModelCacheData | undefined
         transport: requestUrlTransport(requestUrl),
         cache: new ModelCache(cache),
         cli: Platform.isDesktopApp ? nodeCliRunner() : undefined,
+        lang: aiLang(),
     });
 }
 

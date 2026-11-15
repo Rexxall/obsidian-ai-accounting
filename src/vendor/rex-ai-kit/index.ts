@@ -1,6 +1,6 @@
 // Generated from rex-ai-kit 0.1.0. Do not edit here.
 export * from './types';
-export { PROVIDERS, GROUP_LABELS, getProvider, resolveProvider, inferProviderId, slotFromEndpoint } from './catalog';
+export { PROVIDERS, GROUP_LABELS, getProvider, resolveProvider, providerName, inferProviderId, slotFromEndpoint } from './catalog';
 export { complete, buildRequest, parseResponse, authHeaders } from './chat';
 export { fetchModels, normaliseModels, pickerRows, defaultModel, ModelCache, type ModelCacheData } from './models';
 export { checkKey, fetchBalance, parseBalance } from './account';

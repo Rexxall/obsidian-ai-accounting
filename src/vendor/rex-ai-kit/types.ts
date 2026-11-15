@@ -20,7 +20,9 @@ export interface ModelPick {
 
 export interface Provider {
 	id: string;
+	/** English name; `names` holds the Chinese and Japanese ones where they differ. */
 	name: string;
+	names?: { zh?: string; ja?: string };
 	group: ProviderGroup;
 	protocol: Protocol;
 	/** Base URL without a trailing slash, e.g. https://api.openai.com/v1 */

@@ -1,6 +1,6 @@
 // Generated from rex-ai-kit 0.1.0. Do not edit here.
 import { type App, DropdownComponent, SecretComponent, Setting, TextComponent } from 'obsidian';
-import { PROVIDERS, getProvider, resolveProvider } from './catalog';
+import { PROVIDERS, getProvider, providerName, resolveProvider } from './catalog';
 import type { AiClient } from './client';
 import { STRINGS, ago, type Lang, type Strings } from './i18n';
 import { defaultModel, pickerRows } from './models';
@@ -56,7 +56,7 @@ export function renderAiSettings(containerEl: HTMLElement, o: AiSettingsOptions)
 		const showHint = !!p.hint && !p.localAgent && (p.id !== 'gemini' || !!o.privateContent);
 		new Setting(root).setName(s.provider).setDesc(showHint ? p.hint! : '').addDropdown((d) => {
 			const local = !!o.allowLocalAgents && o.client.canRunLocal;
-			fillProviders(d, s, (p) => (!p.localAgent || local) && (!o.filter || o.filter(p)));
+			fillProviders(d, s, o.lang ?? 'en', (p) => (!p.localAgent || local) && (!o.filter || o.filter(p)));
 			d.setValue(getProvider(slot.provider) ? slot.provider : 'custom');
 			d.onChange(async (id) => {
 				aborter.abort();
@@ -229,7 +229,7 @@ export function renderAiSettings(containerEl: HTMLElement, o: AiSettingsOptions)
 	};
 }
 
-function fillProviders(d: DropdownComponent, s: Strings, filter?: (p: Provider) => boolean) {
+function fillProviders(d: DropdownComponent, s: Strings, lang: Lang, filter?: (p: Provider) => boolean) {
 	const groups = new Map<Provider['group'], Provider[]>();
 	for (const p of PROVIDERS) {
 		if (filter && !filter(p)) continue;
@@ -237,7 +237,7 @@ function fillProviders(d: DropdownComponent, s: Strings, filter?: (p: Provider) 
 	}
 	for (const [g, list] of groups) {
 		const og = d.selectEl.createEl('optgroup', { attr: { label: s.groups[g] } });
-		for (const p of list) og.createEl('option', { value: p.id, text: p.name });
+		for (const p of list) og.createEl('option', { value: p.id, text: providerName(p, lang) });
 	}
 }
 

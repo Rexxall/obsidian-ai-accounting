@@ -70,7 +70,7 @@ export function explainError(e: unknown, lang: Lang = 'en'): string {
 	const a = ADVICE[lang];
 	if (!(e instanceof AiError)) return e instanceof Error ? e.message : String(e);
 	if (e.kind === 'aborted') return a.aborted;
-	const local = PROVIDERS.some((p) => p.localAgent && p.name === e.provider);
+	const local = PROVIDERS.some((p) => p.localAgent && [p.name, p.names?.zh, p.names?.ja].includes(e.provider));
 	let advice: string = a[e.kind];
 	if (e.detail === 'images') advice = a.images;
 	else if (e.detail === 'desktop-only') advice = a.desktopOnly;
