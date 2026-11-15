@@ -9,10 +9,7 @@
 
 <p align="center"><a href="https://community.obsidian.md/plugins/ai-accounting"><b>Install from Obsidian</b></a></p>
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/readme/demo-dark.gif">
-  <img src="assets/readme/demo-light.gif" width="100%" alt="Reading a note with a receipt photo: the AI drafts two lines, food and stationery, next to the receipt; after a check they are entered and appear in the month's ledger.">
-</picture>
+<img src="assets/readme/demo.webp" width="100%" alt="Reading a note with a receipt photo: the AI drafts two lines, food and stationery, next to the receipt; after a check they are entered and appear in the month's ledger.">
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/readme/cards-dark.svg">

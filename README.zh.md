@@ -9,10 +9,7 @@
 
 <p align="center"><a href="https://community.obsidian.md/plugins/ai-accounting"><b>在 Obsidian 里安装</b></a></p>
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/readme/demo-dark.gif">
-  <img src="assets/readme/demo-light.gif" width="100%" alt="识别一篇带小票照片的笔记：AI 在小票旁起草两行，吃的和文具；核对后入账，出现在这个月的账本里。">
-</picture>
+<img src="assets/readme/demo.webp" width="100%" alt="识别一篇带小票照片的笔记：AI 在小票旁起草两行，吃的和文具；核对后入账，出现在这个月的账本里。">
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/readme/cards-zh-dark.svg">

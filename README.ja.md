@@ -9,10 +9,7 @@
 
 <p align="center"><a href="https://community.obsidian.md/plugins/ai-accounting"><b>Obsidian からインストール</b></a></p>
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/readme/demo-dark.gif">
-  <img src="assets/readme/demo-light.gif" width="100%" alt="レシート写真を含むノートを読み取り、写真の横に食費と文具の 2 行の下書きを表示します。確認して記帳すると、その月の帳簿に反映されます。">
-</picture>
+<img src="assets/readme/demo.webp" width="100%" alt="レシート写真を含むノートを読み取り、写真の横に食費と文具の 2 行の下書きを表示します。確認して記帳すると、その月の帳簿に反映されます。">
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/readme/cards-dark.svg">
