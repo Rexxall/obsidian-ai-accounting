@@ -42,6 +42,10 @@ jobs:
       - name: Test
         run: npm test
 
+      # Versions in the READMEs and README images must match manifest.json (scripts/docs-sync.mjs).
+      - name: README facts
+        run: node scripts/docs-sync.mjs --check
+
       - name: Build
         run: npm run build
 

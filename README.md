@@ -24,7 +24,7 @@
 
 No AI yet? Click **Add** to record by hand, or **Load samples** on the empty ledger.
 
-**Needs** Obsidian 1.13 or later, desktop or mobile. **Costs** nothing for the plugin; reading receipts uses your own key or a local model. The interface is English or Chinese; other Obsidian languages use English.
+**Needs** Obsidian <!-- DOCS-SYNC:START min -->1.13<!-- DOCS-SYNC:END --> or later, desktop or mobile. **Costs** nothing for the plugin; reading receipts uses your own key or a local model. The interface is English or Chinese; other Obsidian languages use English.
 
 Something not working? [Copy a fix-it prompt](docs/troubleshooting.md) for your AI assistant.
 
