@@ -7,7 +7,7 @@
   <img src="assets/readme/hero-light.svg" width="100%" alt="AI Accounting: snap a receipt, check two lines, and it is in your ledger. A convenience store receipt becomes two draft lines, onigiri and green tea, and a notebook and pen, each with a category, waiting to be recorded.">
 </picture>
 
-<p align="center"><a href="https://community.obsidian.md/plugins/ai-accounting"><b>Install from Obsidian</b></a></p>
+<p align="center"><a href="https://community.obsidian.md/plugins/ai-accounting"><b>Install from Obsidian</b></a> · <a href="https://rexxall.github.io/ai-accounting/">See how it works</a></p>
 
 <img src="assets/readme/demo.webp" width="100%" alt="Reading a note with a receipt photo: the AI drafts two lines, food and stationery, next to the receipt; after a check they are entered and appear in the month's ledger.">
 

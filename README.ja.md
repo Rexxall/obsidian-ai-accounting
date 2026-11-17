@@ -7,7 +7,7 @@
   <img src="assets/readme/hero-light.svg" width="100%" alt="AI Accounting：レシートを撮り、2 行を確認して記帳します。コンビニのレシートから、おにぎりと緑茶、ノートとペンの下書きを作り、分類を付けて確認を待ちます。">
 </picture>
 
-<p align="center"><a href="https://community.obsidian.md/plugins/ai-accounting"><b>Obsidian からインストール</b></a></p>
+<p align="center"><a href="https://community.obsidian.md/plugins/ai-accounting"><b>Obsidian からインストール</b></a> · <a href="https://rexxall.github.io/ai-accounting/">使い方を見る</a></p>
 
 <img src="assets/readme/demo.webp" width="100%" alt="レシート写真を含むノートを読み取り、写真の横に食費と文具の 2 行の下書きを表示します。確認して記帳すると、その月の帳簿に反映されます。">
 

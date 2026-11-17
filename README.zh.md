@@ -7,7 +7,7 @@
   <img src="assets/readme/hero-zh-light.svg" width="100%" alt="AI Accounting（AI 记账）：拍一张小票，核对两行，就进了账本。一张便利店小票变成两行草稿：饭团和绿茶、本子和圆珠笔，各带分类，等你确认入账。">
 </picture>
 
-<p align="center"><a href="https://community.obsidian.md/plugins/ai-accounting"><b>在 Obsidian 里安装</b></a></p>
+<p align="center"><a href="https://community.obsidian.md/plugins/ai-accounting"><b>在 Obsidian 里安装</b></a> · <a href="https://rexxall.github.io/ai-accounting/">看它怎么用</a></p>
 
 <img src="assets/readme/demo.webp" width="100%" alt="识别一篇带小票照片的笔记：AI 在小票旁起草两行，吃的和文具；核对后入账，出现在这个月的账本里。">
 
