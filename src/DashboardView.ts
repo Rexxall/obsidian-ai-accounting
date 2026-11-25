@@ -725,6 +725,9 @@ export class DashboardView extends ItemView {
                     const active = this.selectedCats.has(cat);
                     this.selectedCats.clear();
                     if (!active) this.selectedCats.add(cat);
+                    // The pie under "By period" drills into the same category.
+                    this.selectedDailyCategory = active ? null : cat;
+                    this.selectedSecondaryCategory = null;
                     void this.render();
                 };
             });
@@ -972,6 +975,8 @@ export class DashboardView extends ItemView {
             chartCard.createDiv({ cls: 'ap-cap', text: `${displayDate} · ${this.selectedDailyCategory}` });
             const backBtn = chartCard.createEl('button', { text: tr('← Back to all categories', '← 返回全部分类'), cls: 'aa-link-btn' });
             backBtn.onclick = () => {
+                // Drop the matching "Where it went" selection too; a multi-category filter set elsewhere stays.
+                if (this.selectedCats.size === 1 && this.selectedDailyCategory && this.selectedCats.has(this.selectedDailyCategory)) this.selectedCats.clear();
                 this.selectedDailyCategory = null;
                 this.selectedSecondaryCategory = null;
                 void this.render();
@@ -1641,8 +1646,10 @@ export class DashboardView extends ItemView {
                                     this.selectedSecondaryCategory = category;
                                     void this.render();
                                 } else {
-                                    // Clicking on primary category
+                                    // Clicking on primary category; "Where it went" above selects it too.
                                     this.selectedDailyCategory = category;
+                                    this.selectedCats.clear();
+                                    this.selectedCats.add(category);
                                     void this.render();
                                 }
                             }
