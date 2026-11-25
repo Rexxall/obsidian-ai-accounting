@@ -713,7 +713,9 @@ export class DashboardView extends ItemView {
 
             const where = aside.createDiv({ cls: 'ap-card is-flat aa-where' });
             where.createDiv({ cls: 'ap-label', text: tr('Where it went', '花在哪') });
-            const cats = Object.entries(displayStats.categories).filter(([, v]) => v !== 0).sort((a, b) => b[1] - a[1]);
+            // Every category stays listed while one is selected, so the reader can switch straight to another.
+            const whereStats = this.selectedCats.size > 0 && rawStats ? await this.getConvertedStats(this.getFilteredTransactions(rawStats, true)) : displayStats;
+            const cats = Object.entries(whereStats.categories).filter(([, v]) => v !== 0).sort((a, b) => b[1] - a[1]);
             const colors = this.seriesColors();
             if (cats.length === 0) where.createDiv({ cls: 'ap-cap', text: tr('No data yet', '暂无数据') });
             cats.forEach(([cat, val], index) => {
@@ -2007,7 +2009,8 @@ export class DashboardView extends ItemView {
         this.selectedPMs.clear();
     }
 
-    private getFilteredTransactions(stats: MonthlyStats): MonthlyStats {
+    /** `keepAllCategories` skips the category filter, for lists the reader picks a category from. */
+    private getFilteredTransactions(stats: MonthlyStats, keepAllCategories = false): MonthlyStats {
         const tx = stats.transactions.filter(t => {
             const query = this.searchQuery.toLowerCase();
             const matched = this.searchQuery ? (
@@ -2017,7 +2020,7 @@ export class DashboardView extends ItemView {
             ) : true;
             if (!matched) return false;
 
-            if (this.selectedCats.size > 0) {
+            if (this.selectedCats.size > 0 && !keepAllCategories) {
                 const primary = (t.category.split(/[/>:：]/)[0] || '其他支出').trim();
                 if (!this.selectedCats.has(primary)) return false;
             }
