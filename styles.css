@@ -738,6 +738,7 @@
 
 .ai-accounting-dashboard-container .aa-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .ai-accounting-dashboard-container .aa-card-head .ap-label { margin: 0; }
+.ai-accounting-dashboard-container .aa-charts > .ap-card { min-width: 0; }
 .ai-accounting-dashboard-container .aa-chart { position: relative; height: 250px; margin: 8px 0; }
 .ai-accounting-dashboard-container .aa-chart.is-small { height: 200px; }
 

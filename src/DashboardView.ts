@@ -275,6 +275,27 @@ export class DashboardView extends ItemView {
         // 3. Render Grid
         const gridContainer = container.createDiv({ cls: 'dashboard-grid' });
         await this.renderGrid(gridContainer, ctx);
+        this.settleCharts();
+    }
+
+    /**
+     * Charts are created card by card, so the first card briefly fills the whole row and its chart
+     * keeps that width after the other cards arrive. Once the layout is final, resize the charts in
+     * this view and free the ones the last render detached.
+     */
+    private settleCharts() {
+        window.requestAnimationFrame(() => {
+            for (const chart of Object.values(Chart.instances)) {
+                if (!chart.canvas?.isConnected) chart.destroy();
+                else if (this.contentEl.contains(chart.canvas)) chart.resize();
+            }
+        });
+    }
+
+    async onClose() {
+        for (const chart of Object.values(Chart.instances)) {
+            if (!chart.canvas?.isConnected || this.contentEl.contains(chart.canvas)) chart.destroy();
+        }
     }
 
     private async refreshGridOnly() {
@@ -288,6 +309,7 @@ export class DashboardView extends ItemView {
             grid.empty();
             const ctx = this.getCurrentContext();
             await this.renderGrid(grid, ctx);
+            this.settleCharts();
         } else {
             console.error('Dashboard grid not found!');
         }
@@ -719,7 +741,6 @@ export class DashboardView extends ItemView {
                 backBtn.onclick = () => { this.selectedPrimaryCategory = null; void this.render(); };
             }
             const canvas = chartCard.createDiv({ cls: 'aa-chart' }).createEl('canvas');
-            this.renderCategoryChart(canvas, displayStats);
             chartCard.createDiv({ cls: 'ap-cap', text: tr('Click a category for its subcategories; ⌥ or ⌘ click to rename it.', '点分类看子分类；按住 ⌥ 或 ⌘ 点击可以重命名分类。') });
 
             const trendCard = charts.createDiv({ cls: 'ap-card aa-chart-card aa-trend-card' });
@@ -735,19 +756,24 @@ export class DashboardView extends ItemView {
                 };
             });
             const trendWrap = trendCard.createDiv({ cls: 'aa-chart' });
-            void this.renderTrendChart(trendCard, trendWrap, this.allStats);
-
             const paymentCard = charts.createDiv({ cls: 'ap-card aa-chart-card' });
             paymentCard.createDiv({ cls: 'ap-label', text: tr('Payment method', '支付方式') });
             const paymentCanvas = paymentCard.createDiv({ cls: 'aa-chart' }).createEl('canvas');
-            this.renderPaymentMethodChart(paymentCanvas, displayStats);
 
+            let drawContribution: (() => void) | null = null;
             if (this.selectedUserId === 'all' && this.plugin.settings.users.length > 1) {
                 const contribCard = charts.createDiv({ cls: 'ap-card aa-chart-card' });
                 contribCard.createDiv({ cls: 'ap-label', text: tr('Members', '成员') });
                 const contribCanvas = contribCard.createDiv({ cls: 'aa-chart' }).createEl('canvas');
-                this.renderContributionChart(contribCanvas, rawStats);
+                drawContribution = () => this.renderContributionChart(contribCanvas, rawStats);
             }
+
+            // Draw only after every card is in the grid: a chart sizes itself to its card when created,
+            // and the first card fills the whole row until the others arrive.
+            this.renderCategoryChart(canvas, displayStats);
+            void this.renderTrendChart(trendCard, trendWrap, this.allStats);
+            this.renderPaymentMethodChart(paymentCanvas, displayStats);
+            drawContribution?.();
         }
     }
 
