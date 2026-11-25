@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.1
+
+- Charts tab: after clicking a category, its subcategory chart stays in its own card instead of spilling over the trend and payment charts.
+- *By period · categories* stays open when you click a slice, a period or *Back*, instead of folding up after every click.
+- *Where it went* and the pie under *By period* follow each other: pick a category in either and the other selects it too; *Back to all categories* clears both.
+- *Where it went* keeps every category listed while one is selected, so you can switch straight to another.
+
 ## 0.9.0
 
 - **Twelve AI providers built in, one key for every plugin.** OpenAI, Anthropic and Gemini come first, then DeepSeek, OpenRouter, Qwen, Kimi, Zhipu, SiliconFlow, Ollama, LM Studio and any OpenAI-compatible server. Keys are picked from Obsidian's Keychain under shared names (`openai-api-key` …), so a key saved once serves every plugin. **Check** lists the models the key can use and shows the balance where the provider offers one; the model menu puts recommended picks first. New services start on OpenAI `gpt-6-luna`.
