@@ -70,6 +70,7 @@ export class DashboardView extends ItemView {
 
     // Internal State
     selectedPrimaryCategory: string | null = null; // For drill-down in Charts
+    private analysisOpen = false; // "By period" panel in the ledger tab
     selectedDailyCategory: string | null = null; // Primary category in Transactions tab
     selectedSecondaryCategory: string | null = null; // Secondary category in Transactions tab
     selectedTransactionDate: string | null = null; // Selected date in Transactions view (when scope > day)
@@ -848,6 +849,9 @@ export class DashboardView extends ItemView {
         const detailsCard = parent.createDiv({ cls: 'aa-ledger' });
 
         const analysis = aside.createEl('details', { cls: 'ap-card is-flat aa-analysis' });
+        // Every click in here re-renders the view; keep the panel as the reader left it.
+        analysis.open = this.analysisOpen;
+        analysis.addEventListener('toggle', () => { this.analysisOpen = analysis.open; });
         analysis.createEl('summary', { cls: 'ap-label', text: tr('By period · categories', '按周期看 · 分类细分') });
         const rightPanel = analysis.createDiv('aa-analysis-body');
 
